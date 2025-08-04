@@ -8,45 +8,53 @@ import React, {
   useContext,
   useReducer,
 } from 'react';
-import streamingService from '../api/services/streaming';
+import videoIdentificationService from '../api/services/streaming';
 
 // State interface
-interface VideoState {
-  history: VideoResult[];
-  current: VideoResult | null;
-  isStreaming: boolean;
+interface VideoIdentificationState {
+  identificationHistory: VideoResult[];
+  currentIdentification: VideoResult | null;
+  isIdentificationActive: boolean;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
 }
 
 // Action types
-type VideoAction =
-  | { type: 'SET_CURRENT'; payload: VideoResult | null }
-  | { type: 'ADD_TO_HISTORY'; payload: VideoResult }
-  | { type: 'CLEAR_HISTORY' }
-  | { type: 'SYNC_STREAMING_STATE' };
+type VideoIdentificationAction =
+  | { type: 'SET_CURRENT_IDENTIFICATION'; payload: VideoResult | null }
+  | { type: 'ADD_TO_IDENTIFICATION_HISTORY'; payload: VideoResult }
+  | { type: 'CLEAR_IDENTIFICATION_HISTORY' }
+  | { type: 'SYNC_IDENTIFICATION_STATE' };
 
 // Initial state
-const initialState: VideoState = {
-  history: [],
-  current: null,
-  isStreaming: streamingService.isCurrentlyStreaming(),
-  connectionStatus: streamingService.getConnectionStatus(),
+const initialState: VideoIdentificationState = {
+  identificationHistory: [],
+  currentIdentification: null,
+  isIdentificationActive:
+    videoIdentificationService.isVideoIdentificationActive(),
+  connectionStatus: videoIdentificationService.getConnectionStatus(),
 };
 
 // Reducer function
-function videoReducer(state: VideoState, action: VideoAction): VideoState {
+function videoIdentificationReducer(
+  state: VideoIdentificationState,
+  action: VideoIdentificationAction,
+): VideoIdentificationState {
   switch (action.type) {
-    case 'SET_CURRENT':
-      return { ...state, current: action.payload };
-    case 'ADD_TO_HISTORY':
-      return { ...state, history: [action.payload, ...state.history] };
-    case 'CLEAR_HISTORY':
-      return { ...state, history: [] };
-    case 'SYNC_STREAMING_STATE':
+    case 'SET_CURRENT_IDENTIFICATION':
+      return { ...state, currentIdentification: action.payload };
+    case 'ADD_TO_IDENTIFICATION_HISTORY':
       return {
         ...state,
-        isStreaming: streamingService.isCurrentlyStreaming(),
-        connectionStatus: streamingService.getConnectionStatus(),
+        identificationHistory: [action.payload, ...state.identificationHistory],
+      };
+    case 'CLEAR_IDENTIFICATION_HISTORY':
+      return { ...state, identificationHistory: [] };
+    case 'SYNC_IDENTIFICATION_STATE':
+      return {
+        ...state,
+        isIdentificationActive:
+          videoIdentificationService.isVideoIdentificationActive(),
+        connectionStatus: videoIdentificationService.getConnectionStatus(),
       };
     default:
       return state;
@@ -54,120 +62,135 @@ function videoReducer(state: VideoState, action: VideoAction): VideoState {
 }
 
 // Context interface
-interface VideoContextType {
+interface VideoIdentificationContextType {
   // State
-  history: VideoResult[];
-  current: VideoResult | null;
-  isStreaming: boolean;
+  identificationHistory: VideoResult[];
+  currentIdentification: VideoResult | null;
+  isIdentificationActive: boolean;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
 
   // Actions
-  startStreamingIdentification: (
-    callbacks?: StreamingCallbacks,
-    cameraRef?: any,
-    audioRef?: any,
-  ) => Promise<void>;
-  stopStreamingIdentification: () => void;
-  getStreamingStats: () => any;
-  clearHistory: () => void;
-  setCurrent: (video: VideoResult | null) => void;
-  addToHistory: (video: VideoResult) => void;
-  syncStreamingState: () => void;
+  startVideoIdentification: (callbacks?: StreamingCallbacks) => Promise<void>;
+  stopVideoIdentification: () => void;
+  getIdentificationStatistics: () => any;
+  clearIdentificationHistory: () => void;
+  setCurrentIdentification: (video: VideoResult | null) => void;
+  addToIdentificationHistory: (video: VideoResult) => void;
+  syncIdentificationState: () => void;
 }
 
-const VideoContext = createContext<VideoContextType | undefined>(undefined);
+const VideoIdentificationContext = createContext<
+  VideoIdentificationContextType | undefined
+>(undefined);
 
-export const VideoProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(videoReducer, initialState);
+export const VideoIdentificationProvider = ({
+  children,
+}: {
+  children: ReactNode;
+}) => {
+  const [state, dispatch] = useReducer(
+    videoIdentificationReducer,
+    initialState,
+  );
 
-  const clearHistory = useCallback(() => {
-    dispatch({ type: 'CLEAR_HISTORY' });
+  const clearIdentificationHistory = useCallback(() => {
+    dispatch({ type: 'CLEAR_IDENTIFICATION_HISTORY' });
   }, []);
 
-  const addToHistory = useCallback((video: VideoResult) => {
-    dispatch({ type: 'ADD_TO_HISTORY', payload: video });
+  const addToIdentificationHistory = useCallback((video: VideoResult) => {
+    dispatch({ type: 'ADD_TO_IDENTIFICATION_HISTORY', payload: video });
   }, []);
 
-  const setCurrent = useCallback((video: VideoResult | null) => {
-    dispatch({ type: 'SET_CURRENT', payload: video });
+  const setCurrentIdentification = useCallback((video: VideoResult | null) => {
+    dispatch({ type: 'SET_CURRENT_IDENTIFICATION', payload: video });
   }, []);
 
-  const syncStreamingState = useCallback(() => {
-    dispatch({ type: 'SYNC_STREAMING_STATE' });
+  const syncIdentificationState = useCallback(() => {
+    dispatch({ type: 'SYNC_IDENTIFICATION_STATE' });
   }, []);
 
-  const startStreamingIdentification = useCallback(
-    async (callbacks?: StreamingCallbacks, cameraRef?: any, audioRef?: any) => {
+  const startVideoIdentification = useCallback(
+    async (callbacks?: StreamingCallbacks) => {
       try {
-        await streamingService.startStreaming(
-          {
-            ...callbacks,
-            onSessionStart: (sessionId: string) => {
-              syncStreamingState();
-              callbacks?.onSessionStart?.(sessionId);
-            },
-            onResult: (result: StreamResponse) => {
-              if (result.success && result.result) {
-                dispatch({ type: 'SET_CURRENT', payload: result.result });
-                dispatch({ type: 'ADD_TO_HISTORY', payload: result.result });
-              }
-              callbacks?.onResult?.(result);
-            },
-            onError: (error: string) => {
-              syncStreamingState();
-              callbacks?.onError?.(error);
-            },
-            onSessionEnd: (sessionId: string) => {
-              syncStreamingState();
-              callbacks?.onSessionEnd?.(sessionId);
-            },
+        await videoIdentificationService.startVideoIdentification({
+          ...callbacks,
+          onSessionStart: (sessionId: string) => {
+            syncIdentificationState();
+            callbacks?.onSessionStart?.(sessionId);
           },
-          cameraRef,
-          audioRef,
-        );
+          onResult: (result: StreamResponse) => {
+            if (result.success && result.result) {
+              dispatch({
+                type: 'SET_CURRENT_IDENTIFICATION',
+                payload: result.result,
+              });
+              dispatch({
+                type: 'ADD_TO_IDENTIFICATION_HISTORY',
+                payload: result.result,
+              });
+            }
+            callbacks?.onResult?.(result);
+          },
+          onError: (error: string) => {
+            syncIdentificationState();
+            callbacks?.onError?.(error);
+          },
+          onSessionEnd: (sessionId: string) => {
+            syncIdentificationState();
+            callbacks?.onSessionEnd?.(sessionId);
+          },
+        });
       } catch (error) {
-        syncStreamingState();
+        syncIdentificationState();
         throw error;
       }
     },
-    [syncStreamingState],
+    [syncIdentificationState],
   );
 
-  const stopStreamingIdentification = useCallback(() => {
-    streamingService.stopStreaming();
-    syncStreamingState();
-  }, [syncStreamingState]);
+  const stopVideoIdentification = useCallback(() => {
+    videoIdentificationService.stopVideoIdentification();
+    syncIdentificationState();
+  }, [syncIdentificationState]);
 
-  const getStreamingStats = useCallback(() => {
-    return streamingService.getStreamingStats();
+  const getIdentificationStatistics = useCallback(() => {
+    return videoIdentificationService.getStreamingStatistics();
   }, []);
 
   return (
-    <VideoContext.Provider
+    <VideoIdentificationContext.Provider
       value={{
         // State
-        history: state.history,
-        current: state.current,
-        isStreaming: state.isStreaming,
+        identificationHistory: state.identificationHistory,
+        currentIdentification: state.currentIdentification,
+        isIdentificationActive: state.isIdentificationActive,
         connectionStatus: state.connectionStatus,
 
         // Actions
-        startStreamingIdentification,
-        stopStreamingIdentification,
-        getStreamingStats,
-        clearHistory,
-        setCurrent,
-        addToHistory,
-        syncStreamingState,
+        startVideoIdentification,
+        stopVideoIdentification,
+        getIdentificationStatistics,
+        clearIdentificationHistory,
+        setCurrentIdentification,
+        addToIdentificationHistory,
+        syncIdentificationState,
       }}
     >
       {children}
-    </VideoContext.Provider>
+    </VideoIdentificationContext.Provider>
   );
 };
 
-export const useVideo = () => {
-  const ctx = useContext(VideoContext);
-  if (!ctx) throw new Error('useVideo must be used within VideoProvider');
-  return ctx;
+export const useVideoIdentification = () => {
+  const context = useContext(VideoIdentificationContext);
+  if (!context) {
+    throw new Error(
+      'useVideoIdentification must be used within VideoIdentificationProvider',
+    );
+  }
+  return context;
 };
+
+// Legacy export for backward compatibility
+export const VideoProvider = VideoIdentificationProvider;
+export const useVideo = useVideoIdentification;
