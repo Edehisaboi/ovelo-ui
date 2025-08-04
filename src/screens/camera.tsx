@@ -47,6 +47,7 @@ import { useVideo } from '../context/VideoContext';
 import { useIsForeground } from '../hooks/useIsForeground';
 import { useFaceDetectionPlugin } from '../hooks/useFaceDetection';
 import { useFaceCropperPlugin } from '../hooks/useFaceCropper';
+import { useLiveAudioStream } from '../hooks/useLiveAudioStream';
 
 // API & Config
 import { streamingConfig } from '../api/config';
@@ -65,80 +66,94 @@ export default function CameraScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const {
-    isStreaming,
+    isIdentificationActive,
     connectionStatus,
-    startStreamingIdentification,
-    stopStreamingIdentification,
+    startVideoIdentification,
+    stopVideoIdentification,
   } = useVideo();
 
-  // State and refs
+  // Camera state and refs
   const cameraRef = useRef<Camera>(null);
-  const [isCameraInitialized, setIsCameraInitialized] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>(
     'back',
   );
   const [targetFps, setTargetFps] = useState(30);
   const [statusMessage, setStatusMessage] = useState('');
+  const [flashMode, setFlashMode] = useState<'off' | 'on'>('off');
 
-  const [flash, setFlash] = useState<'off' | 'on'>('off');
-  const [frameProcessorCallback, setFrameProcessorCallback] = useState<
-    ((base64: string) => void) | null
-  >(null);
-
-  // Camera activity
-  const isFocussed = useIsFocused();
-  const isForeground = useIsForeground();
-  const isActive = isFocussed && isForeground;
+  // Camera activity tracking
+  const isScreenFocused = useIsFocused();
+  const isAppForeground = useIsForeground();
+  const isCameraActive = isScreenFocused && isAppForeground;
 
   // Permissions
-  const { hasPermission: camOK, requestPermission: reqCam } =
-    useCameraPermission();
-  const { hasPermission: micOK, requestPermission: reqMic } =
-    useMicrophonePermission();
+  const {
+    hasPermission: hasCameraPermission,
+    requestPermission: requestCameraPermission,
+  } = useCameraPermission();
+  const {
+    hasPermission: hasMicrophonePermission,
+    requestPermission: requestMicrophonePermission,
+  } = useMicrophonePermission();
 
-  // Camera device & format
-  const device = useCameraDevice(cameraPosition);
+  // Camera device & format configuration
+  const cameraDevice = useCameraDevice(cameraPosition);
   const screenAspectRatio = Layout.window.height / Layout.window.width;
-  const format = useCameraFormat(device, [
+  const cameraFormat = useCameraFormat(cameraDevice, [
     { fps: targetFps },
     { videoAspectRatio: screenAspectRatio },
     { videoResolution: 'max' },
     { photoAspectRatio: screenAspectRatio },
     { photoResolution: 'max' },
   ]);
-  const fps = Math.min(format?.maxFps ?? 30, targetFps);
+  const actualFps = Math.min(cameraFormat?.maxFps ?? 30, targetFps);
 
-  // Camera features
-  const supportsFlash = device?.hasFlash ?? false;
+  // Camera capabilities
+  const supportsFlash = cameraDevice?.hasFlash ?? false;
   const supports60Fps = useMemo(
-    () => device?.formats?.some(f => f.maxFps >= 60),
-    [device?.formats],
+    () => cameraDevice?.formats?.some(format => format.maxFps >= 60),
+    [cameraDevice?.formats],
   );
-  const minZoom = device?.minZoom ?? 1;
-  const maxZoom = Math.min(device?.maxZoom ?? 1, MAX_ZOOM_FACTOR);
-  const zoom = useSharedValue(1);
-  const savedZoom = useSharedValue(1);
-  const frameAnimation = useSharedValue(0);
+  const minZoomLevel = cameraDevice?.minZoom ?? 1;
+  const maxZoomLevel = Math.min(cameraDevice?.maxZoom ?? 1, MAX_ZOOM_FACTOR);
+
+  // Zoom animation values
+  const zoomLevel = useSharedValue(1);
+  const savedZoomLevel = useSharedValue(1);
+  const frameBorderAnimation = useSharedValue(0);
+
   const cameraAnimatedProps = useAnimatedProps(
     () => ({
-      zoom: Math.max(Math.min(zoom.value, maxZoom), minZoom),
+      zoom: Math.max(Math.min(zoomLevel.value, maxZoomLevel), minZoomLevel),
     }),
-    [maxZoom, minZoom, zoom],
+    [maxZoomLevel, minZoomLevel, zoomLevel],
   );
 
-  // Frame processors
+  // Frame processing setup
   const detectFacesInFrame = useFaceDetectionPlugin();
   const cropFaceInFrame = useFaceCropperPlugin();
-  const shouldProcessFrames = useSharedValue(isStreaming);
+  const shouldProcessFrames = useSharedValue(isIdentificationActive);
 
   useEffect(() => {
-    shouldProcessFrames.value = isStreaming;
-  }, [isStreaming, shouldProcessFrames]);
+    shouldProcessFrames.value = isIdentificationActive;
+  }, [isIdentificationActive, shouldProcessFrames]);
 
-  // Send processed frame to streaming service
-  const onProcessedFrame = (base64: string) => {
-    if (frameProcessorCallback) {
-      frameProcessorCallback(base64);
+  // Audio streaming setup
+  const {
+    start: startAudioStream,
+    stop: stopAudioStream,
+    setAudioCallback,
+  } = useLiveAudioStream();
+
+  // Frame processing callback - using refs to allow reassignment
+  const frameProcessingCallbackRef = useRef<
+    ((frameData: string) => void) | null
+  >(null);
+
+  const handleProcessedFrame = (frameData: string) => {
+    if (frameProcessingCallbackRef.current) {
+      frameProcessingCallbackRef.current(frameData);
     }
   };
 
@@ -149,11 +164,11 @@ export default function CameraScreen() {
       if (!shouldProcessFrames.value) return;
       runAtTargetFps(streamingConfig.videoConfig.fps, () => {
         'worklet';
-        const faces = detectFacesInFrame(frame);
-        if (faces.length > 0) {
-          const base64 = cropFaceInFrame(frame, faces);
-          if (base64) {
-            runOnJS(onProcessedFrame)(base64);
+        const detectedFaces = detectFacesInFrame(frame);
+        if (detectedFaces.length > 0) {
+          const croppedFrameData = cropFaceInFrame(frame, detectedFaces);
+          if (croppedFrameData) {
+            runOnJS(handleProcessedFrame)(croppedFrameData);
           }
         }
       });
@@ -161,138 +176,177 @@ export default function CameraScreen() {
     [detectFacesInFrame, cropFaceInFrame],
   );
 
-  // Camera lifecycle
-  const onInitialized = useCallback(() => setIsCameraInitialized(true), []);
-  const onError = useCallback((error: CameraRuntimeError) => {
+  // Camera lifecycle handlers
+  const handleCameraInitialized = useCallback(() => setIsCameraReady(true), []);
+  const handleCameraError = useCallback((error: CameraRuntimeError) => {
     console.error(error);
-    Alert.alert('Camera error', error.message || String(error));
+    Alert.alert('Camera Error', error.message || String(error));
   }, []);
 
-  // Controls
-  const startStreaming = useCallback(async () => {
-    if (!camOK) {
-      const ok = await reqCam();
-      if (!ok)
-        return Alert.alert('Permission Required', 'Camera permission needed.');
-    }
-    if (!micOK) {
-      const ok = await reqMic();
-      if (!ok)
+  // Streaming control handlers
+  const handleStartStreaming = useCallback(async () => {
+    // Check camera permission
+    if (!hasCameraPermission) {
+      const permissionGranted = await requestCameraPermission();
+      if (!permissionGranted) {
         return Alert.alert(
           'Permission Required',
-          'Microphone permission needed.',
+          'Camera permission is needed to identify videos.',
         );
+      }
     }
+
+    // Check microphone permission
+    if (!hasMicrophonePermission) {
+      const permissionGranted = await requestMicrophonePermission();
+      if (!permissionGranted) {
+        return Alert.alert(
+          'Permission Required',
+          'Microphone permission is needed for audio analysis.',
+        );
+      }
+    }
+
     setStatusMessage('Connecting...');
+
+    // Provide haptic feedback
     try {
       ReactNativeHapticFeedback.trigger('impactHeavy', {
         enableVibrateFallback: true,
       });
     } catch {}
+
     try {
-      await startStreamingIdentification(
-        {
-          onSessionStart: () => setStatusMessage('Analyzing video...'),
-          onFrameProcessorReady: callback => {
-            setFrameProcessorCallback(() => callback);
-          },
-          onResult: (result: any) => {
-            if (result.success) {
-              setStatusMessage('Video identified successfully!');
-              setTimeout(() => {
-                navigation.navigate('Results', {
-                  videoResult: result.result,
-                });
-              }, 1000);
-            } else {
-              setStatusMessage(`Identification failed: ${result.error}`);
-            }
-          },
-          onError: error => {
-            setStatusMessage(`Error: ${error}`);
-            Alert.alert('Streaming Error', error);
-          },
-          onSessionEnd: () => setStatusMessage('Streaming ended'),
+      await startVideoIdentification({
+        onSessionStart: () => setStatusMessage('Analyzing video content...'),
+        onFrameProcessorReady: frameCallback => {
+          // Set frame processing callback using ref
+          frameProcessingCallbackRef.current = frameCallback;
         },
-        cameraRef.current,
-        null, // No audio recording needed for frame processing
-      );
+        onAudioProcessorReady: async audioCallback => {
+          // Set audio processing callback using ref
+          setAudioCallback(audioCallback);
+
+          // Start audio streaming with await
+          await startAudioStream();
+        },
+        onResult: (result: any) => {
+          if (result.success) {
+            setStatusMessage('Video identified successfully!');
+            setTimeout(() => {
+              navigation.navigate('Results', {
+                videoResult: result.result,
+              });
+            }, 1000);
+          } else {
+            setStatusMessage(`Identification failed: ${result.error}`);
+          }
+        },
+        onError: error => {
+          setStatusMessage(`Connection error: ${error}`);
+          Alert.alert('Streaming Error', error);
+        },
+        onSessionEnd: async () => {
+          setStatusMessage('Streaming session ended');
+          await stopAudioStream();
+        },
+      });
     } catch (error) {
-      setStatusMessage(`Error: ${error}`);
+      setStatusMessage(`Failed to start streaming: ${error}`);
       Alert.alert('Error', `Failed to start streaming: ${error}`);
     }
-  }, [camOK, micOK, reqCam, reqMic, startStreamingIdentification, navigation]);
+  }, [
+    hasCameraPermission,
+    hasMicrophonePermission,
+    requestCameraPermission,
+    requestMicrophonePermission,
+    startVideoIdentification,
+    navigation,
+    startAudioStream,
+    stopAudioStream,
+    setAudioCallback,
+  ]);
 
-  const stopStreaming = useCallback(() => {
-    if (isStreaming) stopStreamingIdentification();
-  }, [isStreaming, stopStreamingIdentification]);
+  const handleStopStreaming = useCallback(async () => {
+    if (isIdentificationActive) {
+      stopVideoIdentification();
+      await stopAudioStream();
+    }
+  }, [isIdentificationActive, stopVideoIdentification, stopAudioStream]);
 
-  // UI Handlers
-  const handleFlip = useCallback(
-    () => setCameraPosition(p => (p === 'back' ? 'front' : 'back')),
+  // Camera control handlers
+  const handleFlipCamera = useCallback(
+    () =>
+      setCameraPosition(currentPosition =>
+        currentPosition === 'back' ? 'front' : 'back',
+      ),
     [],
   );
-  const handleFlash = useCallback(
-    () => setFlash(f => (f === 'off' ? 'on' : 'off')),
+
+  const handleToggleFlash = useCallback(
+    () => setFlashMode(currentMode => (currentMode === 'off' ? 'on' : 'off')),
     [],
   );
-  const handleFps = useCallback(
-    () => setTargetFps(f => (f === 30 ? 60 : 30)),
+
+  const handleToggleFps = useCallback(
+    () => setTargetFps(currentFps => (currentFps === 30 ? 60 : 30)),
     [],
   );
-  const handleClose = useCallback(() => {
-    if (isStreaming) stopStreaming();
+
+  const handleCloseCamera = useCallback(async () => {
+    if (isIdentificationActive) await handleStopStreaming();
     navigation.goBack();
-  }, [isStreaming, stopStreaming, navigation]);
+  }, [isIdentificationActive, handleStopStreaming, navigation]);
 
-  // Gestures
-  const pinch = Gesture.Pinch()
+  // Gesture handlers
+  const pinchGesture = Gesture.Pinch()
     .onBegin(() => {
-      savedZoom.value = zoom.value;
+      savedZoomLevel.value = zoomLevel.value;
     })
-    .onUpdate(e => {
+    .onUpdate(event => {
       const scale = interpolate(
-        e.scale,
+        event.scale,
         [1 - 1 / SCALE_FULL_ZOOM, 1, SCALE_FULL_ZOOM],
         [-1, 0, 1],
         Extrapolation.CLAMP,
       );
-      zoom.value = interpolate(
+      zoomLevel.value = interpolate(
         scale,
         [-1, 0, 1],
-        [minZoom, savedZoom.value, maxZoom],
+        [minZoomLevel, savedZoomLevel.value, maxZoomLevel],
         Extrapolation.CLAMP,
       );
     });
 
-  const doubleTap = Gesture.Tap()
+  const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => {
-      handleFlip();
+      handleFlipCamera();
     });
 
-  const composedGestures = Gesture.Simultaneous(pinch, doubleTap);
+  const combinedGestures = Gesture.Simultaneous(pinchGesture, doubleTapGesture);
 
-  // Animation
-  const frameStyle = useAnimatedStyle(() => ({
+  // Frame border animation
+  const frameBorderStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(
-      frameAnimation.value,
+      frameBorderAnimation.value,
       [0, 1],
       [colors.cardBorder, colors.primary],
     ),
   }));
 
-  if (!camOK || !micOK) {
+  // Permission request screen
+  if (!hasCameraPermission || !hasMicrophonePermission) {
     return (
       <View style={styles(colors).container}>
         <Text style={styles(colors).permissionText}>
-          Please enable camera & microphone access.
+          Please enable camera & microphone access to identify videos.
         </Text>
         <TouchableOpacity
           style={styles(colors).permissionButton}
           onPress={async () => {
-            await reqCam();
-            await reqMic();
+            await requestCameraPermission();
+            await requestMicrophonePermission();
           }}
         >
           <Text style={styles(colors).permissionButtonText}>
@@ -305,21 +359,21 @@ export default function CameraScreen() {
 
   return (
     <View style={styles(colors).container}>
-      {device ? (
-        <GestureDetector gesture={composedGestures}>
+      {cameraDevice ? (
+        <GestureDetector gesture={combinedGestures}>
           <Animated.View style={StyleSheet.absoluteFill}>
             <ReanimatedCamera
               ref={cameraRef}
               style={StyleSheet.absoluteFill}
-              device={device}
-              isActive={isActive}
+              device={cameraDevice}
+              isActive={isCameraActive}
               animatedProps={cameraAnimatedProps}
-              format={format}
-              fps={fps}
-              audio={micOK}
-              torch={supportsFlash ? flash : 'off'}
-              onInitialized={onInitialized}
-              onError={onError}
+              format={cameraFormat}
+              fps={actualFps}
+              audio={hasMicrophonePermission}
+              torch={supportsFlash ? flashMode : 'off'}
+              onInitialized={handleCameraInitialized}
+              onError={handleCameraError}
               frameProcessor={frameProcessor}
               enableZoomGesture={false}
             />
@@ -333,13 +387,13 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Overlay Controls */}
+      {/* Camera overlay controls */}
       <View style={styles(colors).overlay}>
-        {/* Top row */}
+        {/* Header controls */}
         <View style={styles(colors).headerRow}>
           <TouchableOpacity
             style={styles(colors).headerButton}
-            onPress={handleClose}
+            onPress={handleCloseCamera}
           >
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -354,59 +408,64 @@ export default function CameraScreen() {
           </View>
           <TouchableOpacity
             style={styles(colors).headerButton}
-            onPress={handleFlip}
+            onPress={handleFlipCamera}
           >
             <Ionicons name="camera-reverse" size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
 
-        {/* Focus Frame and instructions */}
+        {/* Focus frame and instructions */}
         <View style={styles(colors).frameContainer}>
-          <Animated.View style={[styles(colors).cameraFrame, frameStyle]} />
+          <Animated.View
+            style={[styles(colors).cameraFrame, frameBorderStyle]}
+          />
           <Text style={styles(colors).instructionText}>
-            {isStreaming
+            {isIdentificationActive
               ? statusMessage || 'Streaming... Hold steady'
               : 'Point your camera at the video and hold steady'}
           </Text>
         </View>
 
-        {/* Bottom Controls Row */}
-        <View style={styles(colors).rightButtonRow}>
+        {/* Side controls */}
+        <View style={styles(colors).sideControls}>
           {supportsFlash && (
             <TouchableOpacity
-              style={styles(colors).button}
-              onPress={handleFlash}
+              style={styles(colors).controlButton}
+              onPress={handleToggleFlash}
             >
               <Ionicons
-                name={flash === 'on' ? 'flash' : 'flash-off'}
+                name={flashMode === 'on' ? 'flash' : 'flash-off'}
                 color="white"
                 size={24}
               />
             </TouchableOpacity>
           )}
           {supports60Fps && (
-            <TouchableOpacity style={styles(colors).button} onPress={handleFps}>
+            <TouchableOpacity
+              style={styles(colors).controlButton}
+              onPress={handleToggleFps}
+            >
               <Text style={styles(colors).fpsText}>{`${targetFps}\nFPS`}</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Capture/Streaming Button */}
-        <View style={styles(colors).controls}>
-          {!isStreaming ? (
+        {/* Recording controls */}
+        <View style={styles(colors).recordingControls}>
+          {!isIdentificationActive ? (
             <TouchableOpacity
               style={styles(colors).recordButton}
-              onPress={startStreaming}
+              onPress={handleStartStreaming}
               activeOpacity={0.7}
-              disabled={!isActive || !isCameraInitialized}
+              disabled={!isCameraActive || !isCameraReady}
             >
               <View style={styles(colors).recordButtonInner} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles(colors).stopButton}
-              onPress={stopStreaming}
-              disabled={!isActive || !isCameraInitialized}
+              onPress={handleStopStreaming}
+              disabled={!isCameraActive || !isCameraReady}
             >
               <Ionicons name="stop" size={32} color={colors.background} />
             </TouchableOpacity>
@@ -422,9 +481,6 @@ const styles = (colors: ThemeColors) =>
     container: {
       flex: 1,
       backgroundColor: colors.background,
-    },
-    camera: {
-      flex: 1,
     },
     overlay: {
       position: 'absolute',
@@ -483,7 +539,7 @@ const styles = (colors: ThemeColors) =>
       textAlign: 'center',
       fontWeight: '500',
     },
-    controls: {
+    recordingControls: {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
@@ -515,7 +571,7 @@ const styles = (colors: ThemeColors) =>
       borderWidth: 4,
       borderColor: colors.background,
     },
-    button: {
+    controlButton: {
       marginBottom: 18,
       width: 44,
       height: 44,
@@ -524,7 +580,7 @@ const styles = (colors: ThemeColors) =>
       justifyContent: 'center',
       alignItems: 'center',
     },
-    rightButtonRow: {
+    sideControls: {
       position: 'absolute',
       right: 30,
       top: 100,

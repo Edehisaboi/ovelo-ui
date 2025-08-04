@@ -36,7 +36,7 @@ export default function HomeScreen() {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef(null);
   const { colors, isDarkMode } = useTheme();
-  const { history } = useVideo();
+  const { identificationHistory } = useVideo();
 
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -148,7 +148,7 @@ export default function HomeScreen() {
               <View style={styles(colors).dockLeft}>
                 <Text style={styles(colors).dockTitle}>My Videos</Text>
                 <Text style={styles(colors).dockSubtitle}>
-                  {history.length} videos
+                  {identificationHistory.length} videos
                 </Text>
               </View>
               <IconButton icon="time-outline" onPress={handleHistory} />

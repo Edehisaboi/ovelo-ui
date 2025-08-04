@@ -8,7 +8,7 @@ import {
 } from '@react-navigation/stack';
 
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
-import { VideoProvider } from '../context/VideoContext';
+import { VideoIdentificationProvider } from '../context/VideoContext';
 
 import HomeScreen from './home';
 import CameraScreen from './camera';
@@ -112,9 +112,9 @@ function RootLayoutInner() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <VideoProvider>
+      <VideoIdentificationProvider>
         <RootLayoutInner />
-      </VideoProvider>
+      </VideoIdentificationProvider>
     </ThemeProvider>
   );
 }
