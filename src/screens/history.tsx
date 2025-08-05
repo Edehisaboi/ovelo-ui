@@ -11,16 +11,16 @@ import { Button, IconButton, VideoResultCard } from '../components';
 
 export default function HistoryScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { history, clearHistory, setCurrent } = useVideo();
+  const { identificationHistory, clearIdentificationHistory, setCurrentIdentification } = useVideo();
   const { colors } = useTheme();
 
   const handleItemPress = (item: VideoResult) => {
-    setCurrent(item);
+    setCurrentIdentification(item);
     navigation.navigate('Results', { videoResult: item });
   };
 
   const handleClearHistory = () => {
-    clearHistory();
+    clearIdentificationHistory();
   };
 
   const handleBack = () => {
@@ -57,7 +57,7 @@ export default function HistoryScreen() {
       </View>
 
       {/* Content */}
-      {history.length === 0 ? (
+      {identificationHistory.length === 0 ? (
         <View style={styles(colors).emptyState}>
           <Ionicons name="time-outline" size={64} color={colors.textMuted} />
           <Text style={styles(colors).emptyTitle}>No History Yet</Text>
@@ -73,7 +73,7 @@ export default function HistoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={history}
+          data={identificationHistory}
           renderItem={renderHistoryItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles(colors).listContainer}
