@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
-import SplashScreen from 'react-native-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import {
   createStackNavigator,
@@ -27,7 +26,8 @@ function RootLayoutInner() {
   const { colors, theme } = useTheme();
 
   useEffect(() => {
-    SplashScreen.hide(); // Hide splash screen after loading resources
+    // App initialization logic can go here
+    // Splash screen is handled by the native layer
   }, []);
 
   return (
