@@ -1,12 +1,6 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { runOnJS } from 'react-native-worklets';
+import { useRunOnJS } from 'react-native-worklets-core';
 
 // Vision Camera
 import {
@@ -18,6 +12,7 @@ import {
   useCameraPermission,
   useMicrophonePermission,
   useFrameProcessor,
+  runAsync,
 } from 'react-native-vision-camera';
 
 // Reanimated
@@ -133,11 +128,6 @@ export default function CameraScreen() {
   // Frame processing setup
   const detectFacesInFrame = useFaceDetectionPlugin();
   const cropFaceInFrame = useFaceCropperPlugin();
-  const shouldProcessFrames = useSharedValue(isIdentificationActive);
-
-  useEffect(() => {
-    shouldProcessFrames.value = isIdentificationActive;
-  }, [isIdentificationActive, shouldProcessFrames]);
 
   // Audio streaming setup
   const {
@@ -156,24 +146,35 @@ export default function CameraScreen() {
       frameProcessingCallbackRef.current(frameData);
     }
   };
+  const handleProcessedFrameOnJS = useRunOnJS(handleProcessedFrame, []);
 
-  // Frame processor (1fps, largest face)
   const frameProcessor = useFrameProcessor(
     frame => {
       'worklet';
-      if (!shouldProcessFrames.value) return;
-      runAtTargetFps(streamingConfig.videoConfig.fps, () => {
+
+      if (!isIdentificationActive) return;
+
+      runAsync(frame, () => {
         'worklet';
-        const detectedFaces = detectFacesInFrame(frame);
-        if (detectedFaces.length > 0) {
-          const croppedFrameData = cropFaceInFrame(frame, detectedFaces);
-          if (croppedFrameData) {
-            runOnJS(handleProcessedFrame)(croppedFrameData);
+        runAtTargetFps(streamingConfig.videoConfig.fps, () => {
+          'worklet';
+          const detectedFaces = detectFacesInFrame(frame);
+          if (detectedFaces.length > 0) {
+            const croppedFrameData = cropFaceInFrame(frame, detectedFaces);
+            if (croppedFrameData) {
+              void handleProcessedFrameOnJS(croppedFrameData);
+            }
           }
-        }
+        });
       });
     },
-    [detectFacesInFrame, cropFaceInFrame],
+    // Include isIdentificationActive in dependencies so worklet recompiles when it changes
+    [
+      isIdentificationActive,
+      detectFacesInFrame,
+      cropFaceInFrame,
+      handleProcessedFrameOnJS,
+    ],
   );
 
   // Camera lifecycle handlers
@@ -269,6 +270,7 @@ export default function CameraScreen() {
 
   const handleStopStreaming = useCallback(async () => {
     if (isIdentificationActive) {
+      setStatusMessage('');
       stopVideoIdentification();
       await stopAudioStream();
     }
