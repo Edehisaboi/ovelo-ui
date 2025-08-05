@@ -8,6 +8,7 @@ function getCropRegionAroundFace(
   frame: Frame,
   paddingRatio: number = 0.5,
 ): CropRegion {
+  'worklet';
   // Add padding to all sides
   const padX = faceBox.width * paddingRatio;
   const padY = faceBox.height * paddingRatio;
@@ -27,6 +28,7 @@ function getCropRegionAroundFace(
 }
 
 function getLargestFace(faces: Face[]) {
+  'worklet';
   if (!faces?.length) return null;
   return faces.reduce((largest, face) => {
     const box = face.bounds;
