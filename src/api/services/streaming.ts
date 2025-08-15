@@ -16,168 +16,159 @@ export interface StreamingCallbacks {
   onAudioProcessorReady?: (callback: (base64: string) => void) => void;
 }
 
-export class Streaming {
-  private sessionId: string | null = null;
-  private currentSession: StreamSession | null = null;
-  private isStreaming = false;
+export class VideoIdentificationStreamingService {
+  private currentSessionId: string | null = null;
+  private activeSession: StreamSession | null = null;
+  private isStreamingActive = false;
 
   /**
-   * Start streaming with real-time capture
+   * Start real-time video identification streaming
    */
-  async startStreaming(
+  async startVideoIdentification(
     callbacks: StreamingCallbacks = {},
-    cameraRef?: any,
-    audioRecording?: any,
   ): Promise<StreamSession> {
-    if (this.isStreaming) {
-      throw new Error('Streaming session already in progress');
-    }
-    if (!cameraRef || !audioRecording) {
-      throw new Error('Camera and audio recording references are required');
+    if (this.isStreamingActive) {
+      throw new Error('Video identification session already in progress');
     }
     if (!streamingConfig.videoConfig || !streamingConfig.audioConfig) {
-      throw new Error('Streaming configuration is not set');
+      throw new Error('Streaming configuration is not properly set');
     }
 
-    this.currentSession = {
-      sessionId: this.sessionId!,
+    this.activeSession = {
+      sessionId: this.currentSessionId!,
       startTime: Date.now(),
       status: 'connecting',
       framesSent: 0,
       audioSent: 0,
     };
 
-    this.isStreaming = true;
+    this.isStreamingActive = true;
 
     try {
-      // Connect to WebSocket
-      const connected = await wsClient.connect(this.sessionId!, {
-        onResult: callbacks.onResult,
-        onError: callbacks.onError,
-        onConnect: (serverConnectionId: string) => {
-          console.log(
-            'WebSocket connected with server connection ID:',
-            serverConnectionId,
-          );
+      // Establish WebSocket connection
+      const connectionEstablished = await wsClient.connect(
+        this.currentSessionId!,
+        {
+          onResult: callbacks.onResult,
+          onError: callbacks.onError,
+          onConnect: (serverConnectionId: string) => {
+            console.log(
+              'WebSocket connection established with server ID:',
+              serverConnectionId,
+            );
 
-          // Update session with server's connection ID
-          this.sessionId = serverConnectionId;
-          this.currentSession!.sessionId = serverConnectionId;
-          this.currentSession!.status = 'streaming';
-          callbacks.onSessionStart?.(serverConnectionId);
+            // Update session with server's connection ID
+            this.currentSessionId = serverConnectionId;
+            this.activeSession!.sessionId = serverConnectionId;
+            this.activeSession!.status = 'streaming';
+            callbacks.onSessionStart?.(serverConnectionId);
 
-          // Provide frame processor callback to UI
-          if (callbacks.onFrameProcessorReady) {
-            callbacks.onFrameProcessorReady((base64: string) => {
-              if (this.isStreaming && wsClient.isConnected()) {
-                const frame: StreamFrame = {
-                  type: 'video',
-                  data: base64,
-                  metadata: {
-                    fps: streamingConfig.videoConfig?.fps,
-                    resolution: streamingConfig.videoConfig?.resolution,
-                  },
-                };
-                this.sendVideoFrame(frame);
-              }
-            });
-          }
+            // Setup frame processor callback for UI
+            if (callbacks.onFrameProcessorReady) {
+              callbacks.onFrameProcessorReady((frameData: string) => {
+                if (this.isStreamingActive && wsClient.isConnected()) {
+                  const videoFrame: StreamFrame = {
+                    type: 'frame',
+                    data: frameData
+                  };
+                  this.sendVideoFrame(videoFrame);
+                }
+              });
+            }
 
-          // Provide audio processor callback to UI
-          if (callbacks.onAudioProcessorReady) {
-            callbacks.onAudioProcessorReady((base64: string) => {
-              if (this.isStreaming && wsClient.isConnected()) {
-                const audio: StreamAudio = {
-                  type: 'audio',
-                  data: base64,
-                  metadata: {
-                    sampleRate: streamingConfig.audioConfig?.sampleRate,
-                    channels: streamingConfig.audioConfig?.channels,
-                    format: streamingConfig.audioConfig?.format,
-                    bitrate: streamingConfig.audioConfig?.bitrate,
-                    duration: 100,
-                  },
-                };
-                this.sendAudio(audio);
-              }
-            });
-          }
+            // Setup audio processor callback for UI
+            if (callbacks.onAudioProcessorReady) {
+              callbacks.onAudioProcessorReady((audioData: string) => {
+                if (this.isStreamingActive && wsClient.isConnected()) {
+                  const audioFrame: StreamAudio = {
+                    type: 'audio',
+                    data: audioData
+                  };
+                  this.sendAudioFrame(audioFrame);
+                }
+              });
+            }
+          },
+          onDisconnect: () => {
+            console.log('WebSocket connection disconnected');
+            if (this.isStreamingActive) {
+              this.isStreamingActive = false;
+              callbacks.onSessionEnd?.(this.currentSessionId || '');
+            }
+          },
         },
-        onDisconnect: () => {
-          console.log('WebSocket disconnected');
-          if (this.isStreaming) {
-            this.isStreaming = false;
-            callbacks.onSessionEnd?.(this.sessionId || '');
-          }
-        },
-      });
+      );
 
-      if (!connected) {
-        throw new Error('Failed to connect to WebSocket server');
+      if (!connectionEstablished) {
+        this.isStreamingActive = false;
+        this.activeSession = null;
+        return Promise.reject(
+          new Error('Failed to establish WebSocket connection to server'),
+        );
       }
 
-      return this.currentSession;
+      return this.activeSession;
     } catch (error) {
-      this.isStreaming = false;
-      this.currentSession = null;
+      this.isStreamingActive = false;
+      this.activeSession = null;
       throw error;
     }
   }
 
   /**
-   * Stop streaming
+   * Stop video identification streaming
    */
-  stopStreaming(): void {
-    if (!this.isStreaming) return;
+  stopVideoIdentification(): void {
+    if (!this.isStreamingActive) return;
 
-    this.isStreaming = false;
+    this.isStreamingActive = false;
 
-    // Update session
-    if (this.currentSession) {
-      this.currentSession.endTime = Date.now();
-      this.currentSession.status = 'completed';
+    // Update session status
+    if (this.activeSession) {
+      this.activeSession.endTime = Date.now();
+      this.activeSession.status = 'completed';
     }
 
-    // Disconnect WebSocket
+    // Close WebSocket connection
     wsClient.disconnect();
 
-    console.log('Streaming stopped');
+    console.log('Video identification streaming stopped');
   }
 
   /**
-   * Send video frame via WebSocket
+   * Send video frame data via WebSocket
    */
-  private sendVideoFrame(frame: StreamFrame): boolean {
-    const sent = wsClient.sendFrame(frame);
-    if (sent && this.currentSession) {
-      this.currentSession.framesSent++;
+  private sendVideoFrame(videoFrame: StreamFrame): boolean {
+    const frameSent = wsClient.sendFrame(videoFrame);
+    if (frameSent && this.activeSession) {
+      this.activeSession.framesSent++;
     }
-    return sent;
+    return frameSent;
   }
 
   /**
-   * Send audio data via WebSocket
+   * Send audio frame data via WebSocket
    */
-  private sendAudio(audio: StreamAudio): boolean {
-    const sent = wsClient.sendAudio(audio);
-    if (sent && this.currentSession) {
-      this.currentSession.audioSent++;
+  private sendAudioFrame(audioFrame: StreamAudio): boolean {
+    const audioSent = wsClient.sendAudio(audioFrame);
+    if (audioSent && this.activeSession) {
+      this.activeSession.audioSent++;
     }
-    return sent;
+    return audioSent;
   }
 
   /**
-   * Get current streaming session
+   * Get current streaming session information
    */
   getCurrentSession(): StreamSession | null {
-    return this.currentSession;
+    return this.activeSession;
   }
 
   /**
-   * Check if currently streaming
+   * Check if video identification is currently active
    */
-  isCurrentlyStreaming(): boolean {
-    return this.isStreaming;
+  isVideoIdentificationActive(): boolean {
+    return this.isStreamingActive;
   }
 
   /**
@@ -188,32 +179,32 @@ export class Streaming {
   }
 
   /**
-   * Get streaming statistics
+   * Get streaming session statistics
    */
-  getStreamingStats(): {
+  getStreamingStatistics(): {
     sessionId: string | null;
-    isStreaming: boolean;
+    isStreamingActive: boolean;
     framesSent: number;
     audioSent: number;
-    duration: number;
+    sessionDuration: number;
     connectionStatus: string;
   } {
-    const duration = this.currentSession
-      ? (this.currentSession.endTime || Date.now()) -
-        this.currentSession.startTime
+    const sessionDuration = this.activeSession
+      ? (this.activeSession.endTime || Date.now()) -
+        this.activeSession.startTime
       : 0;
 
     return {
-      sessionId: this.currentSession?.sessionId || null,
-      isStreaming: this.isStreaming,
-      framesSent: this.currentSession?.framesSent || 0,
-      audioSent: this.currentSession?.audioSent || 0,
-      duration,
+      sessionId: this.activeSession?.sessionId || null,
+      isStreamingActive: this.isStreamingActive,
+      framesSent: this.activeSession?.framesSent || 0,
+      audioSent: this.activeSession?.audioSent || 0,
+      sessionDuration,
       connectionStatus: this.getConnectionStatus(),
     };
   }
 }
 
 // Export singleton instance
-const streamingService = new Streaming();
-export default streamingService;
+const videoIdentificationService = new VideoIdentificationStreamingService();
+export default videoIdentificationService;
