@@ -191,6 +191,4 @@ export const useVideoIdentification = () => {
   return context;
 };
 
-// Legacy export for backward compatibility
-export const VideoProvider = VideoIdentificationProvider;
 export const useVideo = useVideoIdentification;
