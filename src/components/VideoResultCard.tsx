@@ -1,19 +1,11 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import React from 'react';
-import {
-  Dimensions,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import { ThemeColors } from '../constants/Colors';
 import { Layout } from '../constants/Layout';
 import { useTheme } from '../context/ThemeContext';
 import { VideoResult } from '../types';
 import Card from './Card';
-
-const { width } = Dimensions.get('window');
 
 interface VideoResultCardProps {
   video: VideoResult;
@@ -43,14 +35,22 @@ export default function VideoResultCard({
     >
       <View style={styles(colors).compactContent}>
         <View style={styles(colors).thumbnail}>
-          <Ionicons name="film" size={24} color={colors.textMuted} />
+          {video.posterUrl ? (
+            <Image
+              source={{ uri: video.posterUrl }}
+              style={styles(colors).thumbnailImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name="film" size={24} color={colors.textMuted} />
+          )}
         </View>
         <View style={styles(colors).compactInfo}>
           <Text style={styles(colors).compactTitle} numberOfLines={2}>
             {video.title}
           </Text>
           <Text style={styles(colors).compactYear}>
-            {video.year} • {video.genre?.split(',')[0]}
+            {video.year || 'Unknown Year'}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
@@ -63,8 +63,18 @@ export default function VideoResultCard({
       {/* Poster */}
       <View style={styles(colors).posterContainer}>
         <View style={styles(colors).poster}>
-          <Ionicons name="film" size={48} color={colors.textMuted} />
-          <Text style={styles(colors).posterText}>Poster</Text>
+          {video.posterUrl ? (
+            <Image
+              source={{ uri: video.posterUrl }}
+              style={styles(colors).posterImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <>
+              <Ionicons name="film" size={48} color={colors.textMuted} />
+              <Text style={styles(colors).posterText}>Poster</Text>
+            </>
+          )}
         </View>
       </View>
 
@@ -187,6 +197,11 @@ const styles = (colors: ThemeColors) =>
       alignItems: 'center',
       marginRight: Layout.spacing.md,
     },
+    thumbnailImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: Layout.borderRadius.md,
+    },
     compactInfo: {
       flex: 1,
     },
@@ -210,12 +225,17 @@ const styles = (colors: ThemeColors) =>
       marginBottom: Layout.spacing.lg,
     },
     poster: {
-      width: width * 0.8,
+      width: Layout.window.width * 0.8,
       height: Layout.poster.height,
       borderRadius: Layout.poster.borderRadius,
       backgroundColor: colors.surfaceLight,
       justifyContent: 'center',
       alignItems: 'center',
+    },
+    posterImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: Layout.poster.borderRadius,
     },
     posterText: {
       color: colors.textMuted,
