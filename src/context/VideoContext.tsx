@@ -13,14 +13,12 @@ import videoIdentificationService from '../api/services/streaming';
 // State interface
 interface VideoIdentificationState {
   identificationHistory: VideoResult[];
-  currentIdentification: VideoResult | null;
   isIdentificationActive: boolean;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
 }
 
 // Action types
 type VideoIdentificationAction =
-  | { type: 'SET_CURRENT_IDENTIFICATION'; payload: VideoResult | null }
   | { type: 'ADD_TO_IDENTIFICATION_HISTORY'; payload: VideoResult }
   | { type: 'CLEAR_IDENTIFICATION_HISTORY' }
   | { type: 'SYNC_IDENTIFICATION_STATE' };
@@ -28,7 +26,6 @@ type VideoIdentificationAction =
 // Initial state
 const initialState: VideoIdentificationState = {
   identificationHistory: [],
-  currentIdentification: null,
   isIdentificationActive:
     videoIdentificationService.isVideoIdentificationActive(),
   connectionStatus: videoIdentificationService.getConnectionStatus(),
@@ -40,8 +37,6 @@ function videoIdentificationReducer(
   action: VideoIdentificationAction,
 ): VideoIdentificationState {
   switch (action.type) {
-    case 'SET_CURRENT_IDENTIFICATION':
-      return { ...state, currentIdentification: action.payload };
     case 'ADD_TO_IDENTIFICATION_HISTORY':
       return {
         ...state,
@@ -65,7 +60,6 @@ function videoIdentificationReducer(
 interface VideoIdentificationContextType {
   // State
   identificationHistory: VideoResult[];
-  currentIdentification: VideoResult | null;
   isIdentificationActive: boolean;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
 
@@ -74,7 +68,6 @@ interface VideoIdentificationContextType {
   stopVideoIdentification: () => void;
   getIdentificationStatistics: () => any;
   clearIdentificationHistory: () => void;
-  setCurrentIdentification: (video: VideoResult | null) => void;
   addToIdentificationHistory: (video: VideoResult) => void;
   syncIdentificationState: () => void;
 }
@@ -101,10 +94,6 @@ export const VideoIdentificationProvider = ({
     dispatch({ type: 'ADD_TO_IDENTIFICATION_HISTORY', payload: video });
   }, []);
 
-  const setCurrentIdentification = useCallback((video: VideoResult | null) => {
-    dispatch({ type: 'SET_CURRENT_IDENTIFICATION', payload: video });
-  }, []);
-
   const syncIdentificationState = useCallback(() => {
     dispatch({ type: 'SYNC_IDENTIFICATION_STATE' });
   }, []);
@@ -120,10 +109,6 @@ export const VideoIdentificationProvider = ({
           },
           onResult: (result: StreamResponse) => {
             if (result.success && result.result) {
-              dispatch({
-                type: 'SET_CURRENT_IDENTIFICATION',
-                payload: result.result,
-              });
               dispatch({
                 type: 'ADD_TO_IDENTIFICATION_HISTORY',
                 payload: result.result,
@@ -162,7 +147,6 @@ export const VideoIdentificationProvider = ({
       value={{
         // State
         identificationHistory: state.identificationHistory,
-        currentIdentification: state.currentIdentification,
         isIdentificationActive: state.isIdentificationActive,
         connectionStatus: state.connectionStatus,
 
@@ -171,7 +155,6 @@ export const VideoIdentificationProvider = ({
         stopVideoIdentification,
         getIdentificationStatistics,
         clearIdentificationHistory,
-        setCurrentIdentification,
         addToIdentificationHistory,
         syncIdentificationState,
       }}
