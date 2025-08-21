@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import type { Frame } from 'react-native-vision-camera';
 import {
   useFaceDetector,
@@ -12,16 +11,14 @@ const faceDetectionOptions: FaceDetectionOptions = {
   autoMode: true,
   windowWidth: Layout.window.width,
   windowHeight: Layout.window.height,
+  cameraFacing: 'back', // TODO: Make this dynamic based on camera selection
 };
 
 export function useFaceDetectionPlugin() {
   const { detectFaces } = useFaceDetector(faceDetectionOptions);
 
-  return useMemo(
-    () => (frame: Frame) => {
-      'worklet';
-      return detectFaces(frame);
-    },
-    [detectFaces],
-  );
+  return (frame: Frame) => {
+    'worklet';
+    return detectFaces(frame);
+  };
 }
