@@ -1,155 +1,196 @@
 import { apiClient } from '../client';
 import { ENDPOINTS } from '../config';
-import type { ContentDetailsRequest, ContentDetailsResponse, SearchRequest, SearchResponse } from '../types';
+import type {
+  ContentDetailsRequest,
+  ContentDetailsResponse,
+  SearchRequest,
+  SearchResponse,
+} from '../types';
+import type { VideoResult } from '../../types';
+
+type ApiResult<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
+type ResultWithId = { id?: string | number } & Record<string, unknown>;
 
 export class Search {
   /**
-   * Search for movies/shows
+   * Return a standardized empty SearchResponse (for failures/fallbacks).
    */
+  private emptySearchResponse(error?: string): SearchResponse {
+    return {
+      success: false,
+      results: [],
+      total: 0,
+      page: 1,
+      hasMore: false,
+      error,
+    };
+  }
+
+  /**
+   * Convert unknown errors to readable messages.
+   */
+  private toMessage(err: unknown): string {
+    return err instanceof Error ? err.message : 'Unexpected error';
+  }
+
+  /**
+   * Deduplicate any array of items by `id` (order-preserving).
+   */
+  private uniqueById<T extends { id?: string | number }>(items: T[] = []): T[] {
+    const seen = new Set<string | number>();
+    const out: T[] = [];
+    for (const item of items) {
+      if (item.id && !seen.has(item.id)) {
+        seen.add(item.id);
+        out.push(item);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Normalize and dedupe a SearchResponse payload.
+   * Preserves server-provided `total` when available.
+   */
+  private normalizeSearchData(data?: SearchResponse | null): SearchResponse {
+    if (!data) return this.emptySearchResponse('No data received');
+
+    const uniqueResults = this.uniqueById<VideoResult>(data.results ?? []);
+
+    return {
+      ...data,
+      results: uniqueResults,
+      total: data.total ?? uniqueResults.length,
+      success: true,
+    };
+  }
+
+
   async searchContent(request: SearchRequest): Promise<SearchResponse> {
     try {
-      const response = await apiClient.get<SearchResponse>(
-        ENDPOINTS.SEARCH_VIDEOS,
-        {
-          q: request.query,
-          type: request.type || 'all',
-          limit: request.limit || 20,
-          offset: request.offset || 0,
-          ...request.filters,
-        }
-      );
+      const body = {
+        query: request.query,
+        type: request.type ?? 'all',
+        limit: request.limit ?? 10,
+      };
 
-      if (!response.success) {
-        return {
-          success: false,
-          results: [],
-          total: 0,
-          page: 1,
-          hasMore: false,
-          error: response.error,
-        };
+      const res = await apiClient.post<SearchResponse>(
+        ENDPOINTS.SEARCH_VIDEOS,
+        body
+      ) as ApiResult<SearchResponse>;
+
+      if (!res.success) {
+        return this.emptySearchResponse(res.error || 'Search failed');
       }
 
-      return response.data as SearchResponse;
-    } catch (error) {
-      console.error('Search failed:', error);
-      return {
-        success: false,
-        results: [],
-        total: 0,
-        page: 1,
-        hasMore: false,
-        error: error instanceof Error ? error.message : 'Search failed',
-      };
+      return this.normalizeSearchData(res.data);
+    } catch (err) {
+      console.error('Search failed:', err);
+      return this.emptySearchResponse(this.toMessage(err));
     }
   }
 
   /**
-   * Search specifically for movies
+   * Search specifically for movies.
    */
   async searchMovies(request: SearchRequest): Promise<SearchResponse> {
     return this.searchContent({ ...request, type: 'movie' });
   }
 
   /**
-   * Search specifically for TV shows
+   * Search specifically for TV shows.
    */
   async searchShows(request: SearchRequest): Promise<SearchResponse> {
-    return this.searchContent({ ...request, type: 'show' });
+    return this.searchContent({ ...request, type: 'tv' });
   }
 
-
   /**
-   * Get content details
+   * Get content details by ID and type.
    */
-  async getContentDetails(request: ContentDetailsRequest): Promise<ContentDetailsResponse> {
+  async getContentDetails(
+    request: ContentDetailsRequest
+  ): Promise<ContentDetailsResponse> {
     try {
-      const endpoint = request.type === 'movie' 
-        ? ENDPOINTS.MOVIE_DETAILS 
-        : ENDPOINTS.SHOW_DETAILS;
+      const endpoint =
+        request.type === 'movie' ? ENDPOINTS.MOVIE_DETAILS : ENDPOINTS.SHOW_DETAILS;
 
-      const response = await apiClient.get<ContentDetailsResponse>(
+      const res = await apiClient.get<ContentDetailsResponse>(
         `${endpoint}/${request.contentId}`,
         {
           includeSimilar: request.includeSimilar,
           includeTrailer: request.includeTrailer,
         }
-      );
+      ) as ApiResult<ContentDetailsResponse>;
 
-      if (!response.success) {
-        return {
-          success: false,
-          error: response.error || 'Failed to get content details',
-        };
+      if (!res.success) {
+        return { success: false, error: res.error || 'Failed to get content details' };
       }
 
-      return response.data as ContentDetailsResponse;
-    } catch (error) {
-      console.error('Get content details failed:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Details fetch failed',
-      };
+      return res.data as ContentDetailsResponse;
+    } catch (err) {
+      console.error('Get content details failed:', err);
+      return { success: false, error: this.toMessage(err) };
     }
   }
 
   /**
-   * Get search suggestions/autocomplete
+   * Get search suggestions/autocomplete.
    */
-  async getSearchSuggestions(query: string, limit: number = 5): Promise<string[]> {
+  async getSearchSuggestions(query: string, limit = 5): Promise<string[]> {
     try {
-      const response = await apiClient.get<{ suggestions: string[] }>(
+      const res = await apiClient.get<{ suggestions: string[] }>(
         `${ENDPOINTS.SEARCH_VIDEOS}/suggestions`,
-        { q: query, limit }
-      );
+        { query, limit }
+      ) as ApiResult<{ suggestions: string[] }>;
 
-      if (!response.success) {
-        return [];
-      }
-
-      return response.data?.suggestions || [];
-    } catch (error) {
-      console.error('Get search suggestions failed:', error);
+      if (!res.success) return [];
+      return res.data?.suggestions ?? [];
+    } catch (err) {
+      console.error('Get search suggestions failed:', err);
       return [];
     }
   }
 
   /**
-   * Get search history
+   * Get search history.
    */
-  async getSearchHistory(limit: number = 10): Promise<string[]> {
+  async getSearchHistory(limit = 10): Promise<string[]> {
     try {
-      const response = await apiClient.get<{ history: string[] }>(
+      const res = await apiClient.get<{ history: string[] }>(
         `${ENDPOINTS.SEARCH_VIDEOS}/history`,
         { limit }
-      );
+      ) as ApiResult<{ history: string[] }>;
 
-      if (!response.success) {
-        return [];
-      }
-
-      return response.data?.history || [];
-    } catch (error) {
-      console.error('Get search history failed:', error);
+      if (!res.success) return [];
+      return res.data?.history ?? [];
+    } catch (err) {
+      console.error('Get search history failed:', err);
       return [];
     }
   }
 
   /**
-   * Clear search history
+   * Clear search history.
    */
   async clearSearchHistory(): Promise<boolean> {
     try {
-      const response = await apiClient.delete(`${ENDPOINTS.SEARCH_VIDEOS}/history`);
-      return response.success;
-    } catch (error) {
-      console.error('Clear search history failed:', error);
+      const res = await apiClient.delete(
+        `${ENDPOINTS.SEARCH_VIDEOS}/history`
+      ) as ApiResult<unknown>;
+      return !!res.success;
+    } catch (err) {
+      console.error('Clear search history failed:', err);
       return false;
     }
   }
 
   /**
-   * Get content by filters
+   * Get content by filters.
    */
   async getContentByFilters(filters: {
     genres?: string[];
@@ -162,33 +203,19 @@ export class Search {
     offset?: number;
   }): Promise<SearchResponse> {
     try {
-      const response = await apiClient.get<SearchResponse>(
+      const res = await apiClient.get<SearchResponse>(
         `${ENDPOINTS.SEARCH_VIDEOS}/filter`,
         filters
-      );
+      ) as ApiResult<SearchResponse>;
 
-      if (!response.success) {
-        return {
-          success: false,
-          results: [],
-          total: 0,
-          page: 1,
-          hasMore: false,
-          error: response.error,
-        };
+      if (!res.success) {
+        return this.emptySearchResponse(res.error || 'Filter failed');
       }
 
-      return response.data as SearchResponse;
-    } catch (error) {
-      console.error('Filter content failed:', error);
-      return {
-        success: false,
-        results: [],
-        total: 0,
-        page: 1,
-        hasMore: false,
-        error: error instanceof Error ? error.message : 'Filter failed',
-      };
+      return this.normalizeSearchData(res.data);
+    } catch (err) {
+      console.error('Filter content failed:', err);
+      return this.emptySearchResponse(this.toMessage(err));
     }
   }
 }
