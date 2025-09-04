@@ -1,97 +1,143 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Ovelo-UI (React Native)
 
-# Getting Started
+Ovelo-UI is a React Native application for identifying video clips in real time using your device camera and microphone. It features a modern UI with light/dark themes, a history of identifications, and smooth animations powered by Reanimated. The app integrates with a backend over HTTP and WebSocket for streaming frames and audio.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+Last updated: 2025-09-04 18:37
 
-## Step 1: Start Metro
+## Table of Contents
+- Overview
+- Features
+- Architecture
+- Requirements
+- Getting Started
+  - Install dependencies
+  - iOS setup (CocoaPods)
+  - Running Metro
+  - Run on Android
+  - Run on iOS
+- Configuration
+- Available Scripts
+- Testing
+- Project Structure
+- Troubleshooting
+- License
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Overview
+Ovelo-UI helps you identify movies and shows by analyzing short clips. Tap the main button to start the camera-based identification flow, view your recent identifications in History, and tweak preferences in Settings.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+## Features
+- Real-time video identification using react-native-vision-camera
+- Optional audio streaming to improve identification
+- Smooth animations and gestures (Reanimated, Gesture Handler)
+- Theming with dark/light mode via context
+- Search bar scaffold on Home
+- Identification history and basic settings screens
+- TypeScript-first codebase
 
-```sh
-# Using npm
-npm start
+## Architecture
+- UI
+  - Screens: Home, Camera, History, Settings, Processing, Results, Welcome
+  - Components: Button, IconButton, Card, VideoResultCard
+  - Navigation: @react-navigation/native and stack
+  - Styling: ThemeContext with Colors and Layout constants
+- Data & Services
+  - HTTP client and service layer in src/api (search, streaming, user, analytics)
+  - WebSocket client for live streaming
+  - Centralized API config and endpoints in src/api/config.ts
+- Hooks & Context
+  - VideoContext manages identification lifecycle and history
+  - Custom hooks: useFaceDetection, useFaceCropper, useLiveAudioStream, useDebounce, useIsForeground
 
-# OR using Yarn
-yarn start
-```
+## Requirements
+- Node.js >= 18 (see package.json engines)
+- Java/Kotlin Android toolchain and Xcode/iOS toolchain as per React Native 0.80.x
+- Ruby/Bundler and CocoaPods for iOS builds
+- Android Studio and an emulator, and/or Xcode with iOS Simulator
 
-## Step 2: Build and run your app
+Follow the official React Native environment setup for your OS before proceeding.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## Getting Started
+### 1) Install dependencies
+Using npm:
+- npm install
 
-### Android
+Using Yarn:
+- yarn
 
-```sh
-# Using npm
-npm run android
+### 2) iOS setup (first time or after native deps change)
+- bundle install
+- bundle exec pod install --project-directory=ios
 
-# OR using Yarn
-yarn android
-```
+### 3) Start Metro
+- npm start
+or
+- yarn start
 
-### iOS
+### 4) Run on Android
+- npm run android
+or
+- yarn android
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+### 5) Run on iOS
+- npm run ios
+or
+- yarn ios
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+If everything is set up correctly, the app will launch in the emulator/simulator or on your connected device.
 
-```sh
-bundle install
-```
+## Configuration
+Backend URLs are currently determined at build time in src/api/config.ts:
+- HTTP baseURL
+  - Development (__DEV__): http://localhost:3000/api
+  - Production: https://api.moovy.app/api
+- WebSocket baseURL
+  - Development: ws://192.168.0.23:8000/v1/ws/identify
+  - Production: wss://api.moovy.app
 
-Then, and every time you update your native dependencies, run:
+Notes:
+- Update these endpoints to match your local/remote backend.
+- On a real device, localhost points to the device; use your machine’s LAN IP (e.g., http://192.168.x.x:3000).
+- For Android emulator, http://10.0.2.2 maps to host localhost.
 
-```sh
-bundle exec pod install
-```
+Streaming options (fps, resolution, audio) are defined in streamingConfig in the same file.
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## Available Scripts
+Defined in package.json:
+- start: Start Metro bundler
+- android: Build and run on Android
+- ios: Build and run on iOS
+- test: Run Jest test suite
+- lint: Run ESLint
 
-```sh
-# Using npm
-npm run ios
+Usage examples:
+- npm run lint
+- npm test
 
-# OR using Yarn
-yarn ios
-```
+## Testing
+This project uses Jest with react-test-renderer.
+- Run tests: npm test or yarn test
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Test files are under __tests__/.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## Project Structure
+- App.tsx: App entry (navigation setup)
+- src/
+  - api/: HTTP/WebSocket clients, services, config, and types
+  - assets/images/: App icons and images with TypeScript typings
+  - components/: Reusable UI components
+  - constants/: Theme colors and layout scales
+  - context/: ThemeContext and VideoContext
+  - hooks/: Custom hooks (debounce, face detection/cropping, live audio, etc.)
+  - screens/: App screens (home, camera, results, history, settings, etc.)
+  - types/: Navigation and shared types
+- android/, ios/: Native projects and build config
 
-## Step 3: Modify your app
+## Troubleshooting
+- iOS pods: If iOS build fails, run bundle exec pod install in the ios folder.
+- Permissions: Ensure camera and microphone permissions are granted.
+- Android localhost: Use 10.0.2.2 for emulator; use your machine IP for device.
+- Build cache: If builds fail unexpectedly, try cleaning Gradle/Xcode derived data.
+- Vision Camera: Make sure you’ve added necessary permissions to AndroidManifest.xml and Info.plist (camera, microphone).
 
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## License
+This repository does not declare an explicit license. If this is a public project, consider adding a LICENSE file. If private, keep it internal per your organization’s policy.
