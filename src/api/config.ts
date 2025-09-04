@@ -36,7 +36,7 @@ const getApiConfig = (): ApiConfig => {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'User-Agent': 'Moovy/1.0.0',
+      'User-Agent': 'Ovelo/1.0.0',
     },
   };
 };
@@ -68,7 +68,7 @@ const getStreamingConfig = {
     bitrate: 128000,
   },
   metadata: {
-    deviceInfo: 'Moovio App',
+    deviceInfo: 'Ovelo App',
     timestamp: new Date().toISOString(),
   },
 };

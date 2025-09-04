@@ -24,7 +24,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     window = UIWindow(frame: UIScreen.main.bounds)
 
     factory.startReactNative(
-      withModuleName: "Moovio",
+      withModuleName: "ovelo-ui",
       in: window,
       launchOptions: launchOptions
     )
