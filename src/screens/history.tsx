@@ -1,21 +1,21 @@
+import Ionicons from '@react-native-vector-icons/ionicons';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { Button, IconButton, VideoResultCard } from '../components';
 import { Layout } from '../constants/Layout';
 import { useTheme } from '../context/ThemeContext';
 import { useVideo } from '../context/VideoContext';
-import { VideoResult, RootStackParamList } from '../types';
-import Ionicons from '@react-native-vector-icons/ionicons';
-import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { Button, IconButton, VideoResultCard } from '../components';
+import { RootStackParamList, VideoResult } from '../types';
+
 
 export default function HistoryScreen() {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { identificationHistory, clearIdentificationHistory, setCurrentIdentification } = useVideo();
+  const { identificationHistory, clearIdentificationHistory } = useVideo();
   const { colors } = useTheme();
 
   const handleItemPress = (item: VideoResult) => {
-    setCurrentIdentification(item);
     navigation.navigate('Results', { videoResult: item });
   };
 
@@ -75,7 +75,7 @@ export default function HistoryScreen() {
         <FlatList
           data={identificationHistory}
           renderItem={renderHistoryItem}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => item.id || `item-${index}`}
           contentContainerStyle={styles(colors).listContainer}
           showsVerticalScrollIndicator={false}
         />

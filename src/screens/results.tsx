@@ -1,13 +1,13 @@
-import { ThemeColors } from '../constants/Colors';
-import { Layout } from '../constants/Layout';
-import { useTheme } from '../context/ThemeContext';
-import { useVideo } from '../context/VideoContext';
-import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { Linking } from 'react-native';
+import {
+  NavigationProp,
+  RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import React, { useEffect } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   Share,
   StyleSheet,
@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -22,13 +23,19 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { VideoResultCard } from '../components';
+import { ThemeColors } from '../constants/Colors';
+import { Layout } from '../constants/Layout';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../types';
 
+
 export default function ResultsScreen() {
-  const { current } = useVideo();
-  const result = current;
+  const route = useRoute<RouteProp<RootStackParamList, 'Results'>>();
   const { colors } = useTheme();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
+  // Use the videoResult from navigation params
+  const result = route.params?.videoResult;
 
   const slideAnimation = useSharedValue(Layout.window.height);
   const fadeAnimation = useSharedValue(0);
@@ -47,7 +54,6 @@ export default function ResultsScreen() {
       transform: [{ translateY: slideAnimation.value }],
     };
   });
-
   const handleWatchTrailer = async () => {
     if (!result?.trailerUrl) {
       Alert.alert(
@@ -57,11 +63,9 @@ export default function ResultsScreen() {
       return;
     }
 
-    if (await Linking.canOpenURL(result?.trailerUrl)) {
-      // If the URL can be opened, proceed to open it
-      await Linking.openURL(result.trailerUrl);
-      return;
-    }
+    // TODO: implement some kind of check on this
+    await Linking.openURL(result.trailerUrl);
+    return;
   };
 
   const handleReadMore = () => {
@@ -76,7 +80,7 @@ export default function ResultsScreen() {
     try {
       await Share.share({
         message: `I just identified "${result?.title}" using Moovy! 🎬`,
-        url: 'https://moovy.app', // Replace with actual app URL
+        url: 'https://moovy.app', // Replace it with actual app URL
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -130,120 +134,6 @@ const styles = (colors: ThemeColors) =>
     },
     scrollView: {
       flex: 1,
-    },
-    posterContainer: {
-      alignItems: 'center',
-      paddingTop: Layout.spacing.xl,
-      paddingBottom: Layout.spacing.lg,
-    },
-    poster: {
-      width: Layout.window.width * 0.8,
-      height: Layout.poster.height,
-      borderRadius: Layout.poster.borderRadius,
-      backgroundColor: colors.surface,
-      overflow: 'hidden',
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 8,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 16,
-      elevation: 8,
-    },
-    posterPlaceholder: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-    },
-    posterText: {
-      color: colors.textMuted,
-      fontSize: 16,
-      marginTop: Layout.spacing.sm,
-    },
-    detailsContainer: {
-      paddingHorizontal: Layout.spacing.lg,
-      paddingBottom: Layout.spacing.xl,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: Layout.spacing.sm,
-    },
-    year: {
-      fontSize: 18,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginBottom: Layout.spacing.lg,
-    },
-    detailRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: Layout.spacing.sm,
-      paddingHorizontal: Layout.spacing.md,
-    },
-    detailText: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      marginLeft: Layout.spacing.sm,
-      flex: 1,
-    },
-    description: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      lineHeight: 24,
-      marginTop: Layout.spacing.lg,
-      paddingHorizontal: Layout.spacing.md,
-    },
-    actionsContainer: {
-      paddingHorizontal: Layout.spacing.lg,
-      paddingBottom: Layout.spacing.xl,
-      gap: Layout.spacing.md,
-    },
-    actionButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: Layout.spacing.md,
-      paddingHorizontal: Layout.spacing.lg,
-      borderRadius: Layout.borderRadius.lg,
-      gap: Layout.spacing.sm,
-    },
-    primaryButton: {
-      backgroundColor: colors.primary,
-    },
-    primaryButtonText: {
-      color: colors.background,
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-    secondaryButton: {
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.primary,
-    },
-    secondaryButtonText: {
-      color: colors.primary,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    footer: {
-      paddingHorizontal: Layout.spacing.lg,
-      paddingBottom: Layout.spacing.xl,
-    },
-    doneButton: {
-      backgroundColor: colors.surface,
-      paddingVertical: Layout.spacing.md,
-      borderRadius: Layout.borderRadius.lg,
-      alignItems: 'center',
-    },
-    doneButtonText: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '600',
     },
     errorContainer: {
       flex: 1,

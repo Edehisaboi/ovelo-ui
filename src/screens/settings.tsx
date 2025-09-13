@@ -1,9 +1,4 @@
-import { ThemeColors } from '../constants/Colors';
-import { Layout } from '../constants/Layout';
-import { useTheme } from '../context/ThemeContext';
-import { AppSettings } from '../types';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import LinearGradient from 'react-native-linear-gradient';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -14,6 +9,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { ThemeColors } from '../constants/Colors';
+import { Layout } from '../constants/Layout';
+import { useTheme } from '../context/ThemeContext';
+import { AppSettings } from '../types';
 
 export default function SettingsScreen() {
   const { colors, isDarkMode, setDarkMode } = useTheme();

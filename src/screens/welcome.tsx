@@ -1,8 +1,8 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import LinearGradient from 'react-native-linear-gradient';
 
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Layout } from '../constants/Layout';
 import { useTheme } from '../context/ThemeContext';
+
 
 const features = [
   {

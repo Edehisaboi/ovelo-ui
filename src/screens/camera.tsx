@@ -1,56 +1,57 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { useRunOnJS } from 'react-native-worklets-core';
+// Icons & Haptics
+import Ionicons from '@react-native-vector-icons/ionicons';
+import {useIsFocused} from '@react-navigation/core';
 
-// Vision Camera
-import {
-  Camera,
-  CameraRuntimeError,
-  runAtTargetFps,
-  useCameraDevice,
-  useCameraFormat,
-  useCameraPermission,
-  useMicrophonePermission,
-  useFrameProcessor,
-  runAsync,
-} from 'react-native-vision-camera';
+// Navigation
+import {NavigationProp, useNavigation} from '@react-navigation/native';
+import React, {useCallback, useRef, useState} from 'react';
+import {Alert, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+
+// Gesture Handler
+import {Gesture, GestureDetector} from 'react-native-gesture-handler';
+import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 
 // Reanimated
 import Animated, {
-  useSharedValue,
-  useAnimatedProps,
-  interpolate,
-  interpolateColor,
-  useAnimatedStyle,
-  Extrapolation,
+    Extrapolation,
+    interpolate,
+    interpolateColor,
+    useAnimatedProps,
+    useAnimatedStyle,
+    useSharedValue,
 } from 'react-native-reanimated';
 
-// Gesture Handler
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-
-// Icons & Haptics
-import Ionicons from '@react-native-vector-icons/ionicons';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-
-// Navigation
-import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { useIsFocused } from '@react-navigation/core';
-
-// Contexts & Hooks
-import { useTheme } from '../context/ThemeContext';
-import { useVideo } from '../context/VideoContext';
-import { useIsForeground } from '../hooks/useIsForeground';
-import { useFaceDetectionPlugin } from '../hooks/useFaceDetection';
-import { useFaceCropperPlugin } from '../hooks/useFaceCropper';
-import { useLiveAudioStream } from '../hooks/useLiveAudioStream';
+// Vision Camera
+import {
+    Camera,
+    CameraRuntimeError,
+    runAsync,
+    runAtTargetFps,
+    useCameraDevice,
+    useCameraFormat,
+    useCameraPermission,
+    useFrameProcessor,
+    useMicrophonePermission,
+} from 'react-native-vision-camera';
+import {useRunOnJS} from 'react-native-worklets-core';
 
 // API & Config
-import { streamingConfig } from '../api/config';
+import {streamingConfig} from '../api/config';
+import {StreamResponse} from '../api/types';
 
 // Constants & Types
-import { ThemeColors } from '../constants/Colors';
-import { Layout } from '../constants/Layout';
-import { RootStackParamList } from '../types';
+import {ThemeColors} from '../constants/Colors';
+import {Layout} from '../constants/Layout';
+
+// Contexts & Hooks
+import {useTheme} from '../context/ThemeContext';
+import {useVideo} from '../context/VideoContext';
+import {useFaceCropperPlugin} from '../hooks/useFaceCropper';
+import {useFaceDetectionPlugin} from '../hooks/useFaceDetection';
+import {useIsForeground} from '../hooks/useIsForeground';
+import {useLiveAudioStream} from '../hooks/useLiveAudioStream';
+import {RootStackParamList, VideoResult} from '../types';
+
 
 const MAX_ZOOM_FACTOR = 6;
 const SCALE_FULL_ZOOM = 3;
@@ -73,7 +74,7 @@ export default function CameraScreen() {
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>(
     'back',
   );
-  const [targetFps, setTargetFps] = useState(30);
+
   const [statusMessage, setStatusMessage] = useState('');
   const [flashMode, setFlashMode] = useState<'off' | 'on'>('off');
 
@@ -96,20 +97,16 @@ export default function CameraScreen() {
   const cameraDevice = useCameraDevice(cameraPosition);
   const screenAspectRatio = Layout.window.height / Layout.window.width;
   const cameraFormat = useCameraFormat(cameraDevice, [
-    { fps: targetFps },
+    { fps: 30 },
     { videoAspectRatio: screenAspectRatio },
     { videoResolution: 'max' },
     { photoAspectRatio: screenAspectRatio },
     { photoResolution: 'max' },
   ]);
-  const actualFps = Math.min(cameraFormat?.maxFps ?? 30, targetFps);
+  const actualFps = Math.min(cameraFormat?.maxFps ?? 30, 30);
 
   // Camera capabilities
   const supportsFlash = cameraDevice?.hasFlash ?? false;
-  const supports60Fps = useMemo(
-    () => cameraDevice?.formats?.some(format => format.maxFps >= 60),
-    [cameraDevice?.formats],
-  );
   const minZoomLevel = cameraDevice?.minZoom ?? 1;
   const maxZoomLevel = Math.min(cameraDevice?.maxZoom ?? 1, MAX_ZOOM_FACTOR);
 
@@ -151,7 +148,6 @@ export default function CameraScreen() {
   const frameProcessor = useFrameProcessor(
     frame => {
       'worklet';
-
       if (!isIdentificationActive) return;
 
       runAsync(frame, () => {
@@ -168,7 +164,6 @@ export default function CameraScreen() {
         });
       });
     },
-    // Include isIdentificationActive in dependencies so worklet recompiles when it changes
     [
       isIdentificationActive,
       detectFacesInFrame,
@@ -227,21 +222,21 @@ export default function CameraScreen() {
         onAudioProcessorReady: async audioCallback => {
           // Set audio processing callback using ref
           setAudioCallback(audioCallback);
-
           // Start audio streaming with await
           await startAudioStream();
         },
-        onResult: (result: any) => {
+        onResult: (result: StreamResponse) => {
           if (result.success) {
             setStatusMessage('Video identified successfully!');
             setTimeout(() => {
               navigation.navigate('Results', {
-                videoResult: result.result,
+                videoResult: result.result as VideoResult,
               });
             }, 1000);
           } else {
             setStatusMessage(`Identification failed: ${result.error}`);
           }
+          stopVideoIdentification(); //todo: implement this correctly
         },
         onError: error => {
           setStatusMessage(`Connection error: ${error}`);
@@ -287,11 +282,6 @@ export default function CameraScreen() {
 
   const handleToggleFlash = useCallback(
     () => setFlashMode(currentMode => (currentMode === 'off' ? 'on' : 'off')),
-    [],
-  );
-
-  const handleToggleFps = useCallback(
-    () => setTargetFps(currentFps => (currentFps === 30 ? 60 : 30)),
     [],
   );
 
@@ -393,12 +383,20 @@ export default function CameraScreen() {
       <View style={styles(colors).overlay}>
         {/* Header controls */}
         <View style={styles(colors).headerRow}>
-          <TouchableOpacity
-            style={styles(colors).headerButton}
-            onPress={handleCloseCamera}
-          >
-            <Ionicons name="close" size={24} color={colors.text} />
-          </TouchableOpacity>
+          {/* Flash at top-left */}
+          {supportsFlash && (
+            <TouchableOpacity
+              style={styles(colors).headerButton}
+              onPress={handleToggleFlash}
+            >
+              <Ionicons
+                name={flashMode === 'on' ? 'flash' : 'flash-off'}
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          )}
+          {/* Status message centered */}
           <View style={styles(colors).headerStatusContainer}>
             <Text
               style={styles(colors).headerStatusText}
@@ -408,12 +406,6 @@ export default function CameraScreen() {
               {statusMessage || connectionStatus}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles(colors).headerButton}
-            onPress={handleFlipCamera}
-          >
-            <Ionicons name="camera-reverse" size={24} color={colors.text} />
-          </TouchableOpacity>
         </View>
 
         {/* Focus frame and instructions */}
@@ -423,55 +415,50 @@ export default function CameraScreen() {
           />
           <Text style={styles(colors).instructionText}>
             {isIdentificationActive
-              ? statusMessage || 'Streaming... Hold steady'
+              ? 'Streaming... Hold steady'
               : 'Point your camera at the video and hold steady'}
           </Text>
         </View>
 
-        {/* Side controls */}
-        <View style={styles(colors).sideControls}>
-          {supportsFlash && (
-            <TouchableOpacity
-              style={styles(colors).controlButton}
-              onPress={handleToggleFlash}
-            >
-              <Ionicons
-                name={flashMode === 'on' ? 'flash' : 'flash-off'}
-                color="white"
-                size={24}
-              />
-            </TouchableOpacity>
-          )}
-          {supports60Fps && (
-            <TouchableOpacity
-              style={styles(colors).controlButton}
-              onPress={handleToggleFps}
-            >
-              <Text style={styles(colors).fpsText}>{`${targetFps}\nFPS`}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
         {/* Recording controls */}
         <View style={styles(colors).recordingControls}>
-          {!isIdentificationActive ? (
-            <TouchableOpacity
-              style={styles(colors).recordButton}
-              onPress={handleStartStreaming}
-              activeOpacity={0.7}
-              disabled={!isCameraActive || !isCameraReady}
-            >
-              <View style={styles(colors).recordButtonInner} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles(colors).stopButton}
-              onPress={handleStopStreaming}
-              disabled={!isCameraActive || !isCameraReady}
-            >
-              <Ionicons name="stop" size={32} color={colors.background} />
-            </TouchableOpacity>
-          )}
+          {/* Left side - Cancel button */}
+          <TouchableOpacity
+            style={styles(colors).cancelButton}
+            onPress={handleCloseCamera}
+          >
+            <Text style={styles(colors).cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+
+          {/* Center - Record/Stop button */}
+          <View style={styles(colors).centerControls}>
+            {!isIdentificationActive ? (
+              <TouchableOpacity
+                style={styles(colors).recordButton}
+                onPress={handleStartStreaming}
+                activeOpacity={0.7}
+                disabled={!isCameraActive || !isCameraReady}
+              >
+                <View style={styles(colors).recordButtonInner} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles(colors).stopButton}
+                onPress={handleStopStreaming}
+                disabled={!isCameraActive || !isCameraReady}
+              >
+                <Ionicons name="stop" size={32} color={colors.background} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Right side - Flip camera button */}
+          <TouchableOpacity
+            style={styles(colors).flipButton}
+            onPress={handleFlipCamera}
+          >
+            <Ionicons name="camera-reverse" size={24} color={'white'} />
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -495,17 +482,19 @@ const styles = (colors: ThemeColors) =>
     headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       paddingHorizontal: 20,
-      paddingTop: 60,
-      paddingBottom: 16,
+      paddingBottom: 10,
+      paddingTop: 40,
       width: '100%',
     },
     headerButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      position: 'absolute',
+      left: 20,
+      top: 40,
+      width: 30,
+      height: 30,
+      borderRadius: 15,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -513,7 +502,6 @@ const styles = (colors: ThemeColors) =>
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 8,
     },
     headerStatusText: {
       color: colors.text,
@@ -543,56 +531,61 @@ const styles = (colors: ThemeColors) =>
     },
     recordingControls: {
       flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingBottom: 50,
+      paddingHorizontal: 30,
+      backgroundColor: 'black',
+      paddingTop: 20,
+    },
+    centerControls: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelButton: {
+      paddingHorizontal: 6,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    cancelButtonText: {
+      color: 'white',
+      fontSize: 18,
+      fontWeight: '600',
+    },
+    flipButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingBottom: 60,
     },
     recordButton: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
+      width: 70,
+      height: 70,
+      borderRadius: 35,
       backgroundColor: colors.primary,
       justifyContent: 'center',
       alignItems: 'center',
-      borderWidth: 4,
+      borderWidth: 3,
       borderColor: colors.background,
     },
     recordButtonInner: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
       backgroundColor: colors.background,
     },
     stopButton: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
+      width: 70,
+      height: 70,
+      borderRadius: 35,
       backgroundColor: colors.error,
       justifyContent: 'center',
       alignItems: 'center',
-      borderWidth: 4,
+      borderWidth: 3,
       borderColor: colors.background,
     },
-    controlButton: {
-      marginBottom: 18,
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: 'rgba(140, 140, 140, 0.3)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    sideControls: {
-      position: 'absolute',
-      right: 30,
-      top: 100,
-    },
-    fpsText: {
-      color: 'white',
-      fontSize: 11,
-      fontWeight: 'bold',
-      textAlign: 'center',
-    },
+
     permissionText: {
       color: colors.text,
       fontSize: 16,

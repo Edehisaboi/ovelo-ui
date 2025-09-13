@@ -1,23 +1,22 @@
-import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import {
   createStackNavigator,
   TransitionPresets,
 } from '@react-navigation/stack';
+import React, { useEffect } from 'react';
+import { StatusBar } from 'react-native';
 
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { VideoIdentificationProvider } from '../context/VideoContext';
 
-import HomeScreen from './home';
+import { RootStackParamList } from '../types';
 import CameraScreen from './camera';
-import ProcessingScreen from './processing';
-import ResultsScreen from './results';
 import HistoryScreen from './history';
+
+import HomeScreen from './home';
+import ResultsScreen from './results';
 import SettingsScreen from './settings';
 import WelcomeScreen from './welcome';
-
-import { RootStackParamList } from '../types';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -57,16 +56,6 @@ function RootLayoutInner() {
             options={{
               title: 'Record Video',
               headerShown: false,
-              presentation: 'modal', // fullScreenModal requires custom config in RN
-            }}
-          />
-          <Stack.Screen
-            name="Processing"
-            component={ProcessingScreen}
-            options={{
-              title: 'Identifying...',
-              headerShown: false,
-              presentation: 'modal',
             }}
           />
           <Stack.Screen
@@ -75,7 +64,6 @@ function RootLayoutInner() {
             options={{
               title: 'Video Found',
               headerShown: false,
-              presentation: 'modal',
             }}
           />
           <Stack.Screen
