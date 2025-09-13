@@ -47,7 +47,7 @@ export const Layout = {
     borderRadius: 16,
   },
 
-  // Results poster
+  // Result poster
   poster: {
     height: height * 0.4,
     borderRadius: 16,
