@@ -1,12 +1,12 @@
 import React, {
-  ReactNode,
   createContext,
+  ReactNode,
   useContext,
   useEffect,
   useState,
 } from 'react';
 import { useColorScheme } from 'react-native';
-import { ThemeColors, ThemeType, getColors } from '../constants/Colors';
+import { getColors, ThemeColors, ThemeType } from '../constants/Colors';
 
 interface ThemeContextProps {
   theme: ThemeType;
@@ -21,7 +21,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemTheme = (useColorScheme() as ThemeType) || 'light';
   const [theme, setTheme] = useState<ThemeType>(systemTheme);
 
-  // Always sync theme with system (resets any override on system change)
+  // Always sync theme with the system (resets any override on system change)
   useEffect(() => {
     setTheme(systemTheme);
   }, [systemTheme]);

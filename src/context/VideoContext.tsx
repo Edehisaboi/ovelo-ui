@@ -1,6 +1,3 @@
-import { StreamingCallbacks } from '../api/services/streaming';
-import { StreamResponse } from '../api';
-import { VideoResult } from '../types';
 import React, {
   createContext,
   ReactNode,
@@ -8,7 +5,11 @@ import React, {
   useContext,
   useReducer,
 } from 'react';
-import videoIdentificationService from '../api/services/streaming';
+import { StreamResponse } from '../api';
+import videoIdentificationService, {
+  StreamingCallbacks,
+} from '../api/services/streaming';
+import { VideoResult } from '../types';
 
 // State interface
 interface VideoIdentificationState {
