@@ -1,9 +1,10 @@
 import type { Frame } from 'react-native-vision-camera';
 import {
-  useFaceDetector,
   FaceDetectionOptions,
+  useFaceDetector,
 } from 'react-native-vision-camera-face-detector';
 import { Layout } from '../constants/Layout';
+
 
 const faceDetectionOptions: FaceDetectionOptions = {
   performanceMode: 'fast',

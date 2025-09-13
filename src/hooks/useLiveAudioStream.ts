@@ -44,7 +44,7 @@ export function useLiveAudioStream(initialCallback?: AudioDataCallback) {
     }
   };
 
-  // Cleanup on unmount
+  // Cleanup on un-mount
   useEffect(() => {
     return () => {
       void stop();
