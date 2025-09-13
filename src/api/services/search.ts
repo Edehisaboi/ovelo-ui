@@ -1,3 +1,4 @@
+import type { VideoResult } from '../../types';
 import { apiClient } from '../client';
 import { ENDPOINTS } from '../config';
 import type {
@@ -6,15 +7,12 @@ import type {
   SearchRequest,
   SearchResponse,
 } from '../types';
-import type { VideoResult } from '../../types';
 
 type ApiResult<T> = {
   success: boolean;
   data?: T;
   error?: string;
 };
-
-type ResultWithId = { id?: string | number } & Record<string, unknown>;
 
 export class Search {
   /**
@@ -55,7 +53,7 @@ export class Search {
 
   /**
    * Normalize and dedupe a SearchResponse payload.
-   * Preserves server-provided `total` when available.
+   * Preserve server-provided `total` when available.
    */
   private normalizeSearchData(data?: SearchResponse | null): SearchResponse {
     if (!data) return this.emptySearchResponse('No data received');
@@ -70,7 +68,6 @@ export class Search {
     };
   }
 
-
   async searchContent(request: SearchRequest): Promise<SearchResponse> {
     try {
       const body = {
@@ -79,10 +76,10 @@ export class Search {
         limit: request.limit ?? 10,
       };
 
-      const res = await apiClient.post<SearchResponse>(
+      const res = (await apiClient.post<SearchResponse>(
         ENDPOINTS.SEARCH_VIDEOS,
-        body
-      ) as ApiResult<SearchResponse>;
+        body,
+      )) as ApiResult<SearchResponse>;
 
       if (!res.success) {
         return this.emptySearchResponse(res.error || 'Search failed');
@@ -113,22 +110,27 @@ export class Search {
    * Get content details by ID and type.
    */
   async getContentDetails(
-    request: ContentDetailsRequest
+    request: ContentDetailsRequest,
   ): Promise<ContentDetailsResponse> {
     try {
       const endpoint =
-        request.type === 'movie' ? ENDPOINTS.MOVIE_DETAILS : ENDPOINTS.SHOW_DETAILS;
+        request.type === 'movie'
+          ? ENDPOINTS.MOVIE_DETAILS
+          : ENDPOINTS.SHOW_DETAILS;
 
-      const res = await apiClient.get<ContentDetailsResponse>(
+      const res = (await apiClient.get<ContentDetailsResponse>(
         `${endpoint}/${request.contentId}`,
         {
           includeSimilar: request.includeSimilar,
           includeTrailer: request.includeTrailer,
-        }
-      ) as ApiResult<ContentDetailsResponse>;
+        },
+      )) as ApiResult<ContentDetailsResponse>;
 
       if (!res.success) {
-        return { success: false, error: res.error || 'Failed to get content details' };
+        return {
+          success: false,
+          error: res.error || 'Failed to get content details',
+        };
       }
 
       return res.data as ContentDetailsResponse;
@@ -143,10 +145,10 @@ export class Search {
    */
   async getSearchSuggestions(query: string, limit = 5): Promise<string[]> {
     try {
-      const res = await apiClient.get<{ suggestions: string[] }>(
+      const res = (await apiClient.get<{ suggestions: string[] }>(
         `${ENDPOINTS.SEARCH_VIDEOS}/suggestions`,
-        { query, limit }
-      ) as ApiResult<{ suggestions: string[] }>;
+        { query, limit },
+      )) as ApiResult<{ suggestions: string[] }>;
 
       if (!res.success) return [];
       return res.data?.suggestions ?? [];
@@ -161,10 +163,10 @@ export class Search {
    */
   async getSearchHistory(limit = 10): Promise<string[]> {
     try {
-      const res = await apiClient.get<{ history: string[] }>(
+      const res = (await apiClient.get<{ history: string[] }>(
         `${ENDPOINTS.SEARCH_VIDEOS}/history`,
-        { limit }
-      ) as ApiResult<{ history: string[] }>;
+        { limit },
+      )) as ApiResult<{ history: string[] }>;
 
       if (!res.success) return [];
       return res.data?.history ?? [];
@@ -179,9 +181,9 @@ export class Search {
    */
   async clearSearchHistory(): Promise<boolean> {
     try {
-      const res = await apiClient.delete(
-        `${ENDPOINTS.SEARCH_VIDEOS}/history`
-      ) as ApiResult<unknown>;
+      const res = (await apiClient.delete(
+        `${ENDPOINTS.SEARCH_VIDEOS}/history`,
+      )) as ApiResult<unknown>;
       return !!res.success;
     } catch (err) {
       console.error('Clear search history failed:', err);
@@ -203,10 +205,10 @@ export class Search {
     offset?: number;
   }): Promise<SearchResponse> {
     try {
-      const res = await apiClient.get<SearchResponse>(
+      const res = (await apiClient.get<SearchResponse>(
         `${ENDPOINTS.SEARCH_VIDEOS}/filter`,
-        filters
-      ) as ApiResult<SearchResponse>;
+        filters,
+      )) as ApiResult<SearchResponse>;
 
       if (!res.success) {
         return this.emptySearchResponse(res.error || 'Filter failed');
@@ -222,4 +224,4 @@ export class Search {
 
 // Export singleton instance
 export const searchService = new Search();
-export default searchService; 
+export default searchService;

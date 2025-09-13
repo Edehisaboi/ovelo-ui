@@ -1,3 +1,4 @@
+import { streamingConfig } from '../config';
 import {
   StreamAudio,
   StreamFrame,
@@ -5,7 +6,6 @@ import {
   StreamSession,
 } from '../types';
 import { wsClient } from '../websocket';
-import { streamingConfig } from '../config';
 
 export interface StreamingCallbacks {
   onResult?: (result: StreamResponse) => void;
@@ -69,7 +69,7 @@ export class VideoIdentificationStreamingService {
                 if (this.isStreamingActive && wsClient.isConnected()) {
                   const videoFrame: StreamFrame = {
                     type: 'frame',
-                    data: frameData
+                    data: frameData,
                   };
                   this.sendVideoFrame(videoFrame);
                 }
@@ -82,7 +82,7 @@ export class VideoIdentificationStreamingService {
                 if (this.isStreamingActive && wsClient.isConnected()) {
                   const audioFrame: StreamAudio = {
                     type: 'audio',
-                    data: audioData
+                    data: audioData,
                   };
                   this.sendAudioFrame(audioFrame);
                 }

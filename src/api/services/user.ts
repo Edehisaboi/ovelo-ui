@@ -8,6 +8,7 @@ import {
   UserProfile,
 } from '../types';
 
+
 export class User {
   /**
    * Get user profile
