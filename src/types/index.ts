@@ -1,16 +1,17 @@
 export interface VideoResult {
-  id: string;
-  title: string;
-  posterUrl: string;
-  year?: number;
+  id?: string;
+  title?: string;
+  posterUrl?: string;
+  year?: string;
   director?: string;
   genre?: string;
   description?: string;
   trailerUrl?: string;
+  tmdbRating?: number;
   imdbRating?: number;
   duration?: string;
+  source?: 'camera' | 'screen';
   identifiedAt: Date;
-  source: 'camera' | 'screen';
 }
 
 export interface HistoryItem {
