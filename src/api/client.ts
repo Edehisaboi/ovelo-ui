@@ -136,13 +136,17 @@ class ApiClient {
     endpoint: string,
     params: Record<string, any>,
   ): string {
-    const url = new URL(endpoint, this.baseURL);
+    // Create URLSearchParams for query string
+    const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
-        url.searchParams.append(key, String(value));
+        searchParams.append(key, String(value));
       }
     });
-    return url.pathname + url.search;
+
+    // Manually construct the path with query string
+    const queryString = searchParams.toString();
+    return queryString ? `${endpoint}?${queryString}` : endpoint;
   }
 
   // Retry mechanism for failed requests

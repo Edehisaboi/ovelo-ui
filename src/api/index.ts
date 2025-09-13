@@ -1,5 +1,11 @@
-// API Configuration
-export { API_STATUS, apiConfig, ENDPOINTS, wsConfig } from './config';
+export {
+  API_STATUS,
+  apiConfig,
+  ENDPOINTS,
+  wsConfig,
+  streamingConfig,
+} from './config';
+
 export type {
   ApiConfig,
   ApiError,
@@ -7,65 +13,25 @@ export type {
   WebSocketConfig,
 } from './config';
 
-// API Client
 export { default as apiClient } from './client';
-
-// WebSocket Client
 export { default as wsClient } from './websocket';
 
-// API Types
-export type {
-  AnalyticsEvent,
-  ContentDetailsRequest,
-  ContentDetailsResponse,
-  RateLimitInfo,
-  SearchRequest,
-  SearchResponse,
-  StreamAudio,
-  // Streaming types
-  StreamFrame,
-  StreamResponse,
-  StreamSession,
-  UploadProgress,
-  UsageAnalytics,
-  UserHistoryRequest,
-  UserHistoryResponse,
-  UserProfile,
-  WebSocketAudioEvent,
-  WebSocketErrorEvent,
-  WebSocketEvent,
-  WebSocketFrameEvent,
-  WebSocketOutgoingEvent,
-  WebSocketProgressEvent,
-  WebSocketResultEvent,
-} from './types';
+export type * from './types';
 
-// API Services
-export { default as analyticsService } from './services/analytics.ts';
 export { default as searchService } from './services/search.ts';
 export { default as streamingService } from './services/streaming.ts';
 export { default as userService } from './services/user.ts';
-export { default as videoService } from './services/video.ts';
 
-// Service classes for advanced usage
-export { Analytics } from './services/analytics.ts';
 export { Search } from './services/search.ts';
-export { Streaming } from './services/streaming.ts';
 export { User } from './services/user.ts';
-export { Video } from './services/video.ts';
+export { VideoIdentificationStreamingService } from './services/streaming.ts';
 
-// Import config and services for utility functions
-import apiClient from './client';
-import { API_STATUS, apiConfig, ENDPOINTS } from './config';
-import analyticsService from './services/analytics.ts';
-import searchService from './services/search.ts';
-import userService from './services/user.ts';
-import videoService from './services/video.ts';
-
-// Utility functions
+/**
+ * Utility API helpers.
+ */
 export const apiUtils = {
   /**
-   * Check if API is available
+   * Check API health.
    */
   async checkApiHealth(): Promise<boolean> {
     try {
@@ -77,7 +43,7 @@ export const apiUtils = {
   },
 
   /**
-   * Format API error message
+   * Format API error for display.
    */
   formatErrorMessage(error: any): string {
     if (typeof error === 'string') return error;
@@ -87,40 +53,31 @@ export const apiUtils = {
   },
 
   /**
-   * Retry API call with exponential backoff
+   * Retry API call with exponential backoff.
    */
   async retryWithBackoff<T>(
     fn: () => Promise<T>,
-    maxRetries: number = 3,
-    baseDelay: number = 1000,
+    maxRetries = 3,
+    baseDelay = 1000,
   ): Promise<T> {
     let lastError: Error;
-
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await fn();
       } catch (error) {
         lastError = error as Error;
-
-        if (attempt === maxRetries) {
-          throw lastError;
-        }
-
+        if (attempt === maxRetries) throw lastError;
         const delay = baseDelay * Math.pow(2, attempt - 1);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(res => setTimeout(res, delay));
       }
     }
-
     throw lastError!;
   },
 
   /**
-   * Debounce API calls
+   * Debounce a function.
    */
-  debounce<T extends (...args: any[]) => any>(
-    func: T,
-    wait: number,
-  ): (...args: Parameters<T>) => void {
+  debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
     let timeout: ReturnType<typeof setTimeout>;
     return (...args: Parameters<T>) => {
       clearTimeout(timeout);
@@ -129,30 +86,41 @@ export const apiUtils = {
   },
 
   /**
-   * Throttle API calls
+   * Throttle a function.
    */
-  throttle<T extends (...args: any[]) => any>(
-    func: T,
-    limit: number,
-  ): (...args: Parameters<T>) => void {
-    let inThrottle: boolean;
+  throttle<T extends (...args: any[]) => any>(func: T, limit: number) {
+    let inThrottle = false;
     return (...args: Parameters<T>) => {
       if (!inThrottle) {
         func(...args);
         inThrottle = true;
-        setTimeout(() => (inThrottle = false), limit);
+        setTimeout(() => {
+          inThrottle = false;
+        }, limit);
       }
     };
   },
 };
 
-// Default export for convenience
+// --- Default Export (full API) ---
+import apiClient from './client';
+import {
+  API_STATUS,
+  apiConfig,
+  ENDPOINTS,
+  streamingConfig,
+  wsConfig,
+} from './config';
+import searchService from './services/search.ts';
+import streamingService from './services/streaming.ts';
+import userService from './services/user.ts';
+
+
 export default {
-  searchService,
-  userService,
-  analyticsService,
-  videoService,
   apiClient,
+  searchService,
+  streamingService,
+  userService,
   apiUtils,
-  config: { apiConfig, ENDPOINTS, API_STATUS },
+  config: { apiConfig, wsConfig, streamingConfig, ENDPOINTS, API_STATUS },
 };

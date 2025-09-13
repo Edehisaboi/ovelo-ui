@@ -8,6 +8,7 @@ import {
   WebSocketFrameEvent,
 } from './types';
 
+
 export interface WebSocketCallbacks {
   onResult?: (result: StreamResponse) => void;
   onProgress?: (progress: number, message?: string) => void;
@@ -81,7 +82,7 @@ export class WebSocketClient {
     }
 
     // Ensure this is a video frame
-    if (frame.type !== 'video') {
+    if (frame.type !== 'frame') {
       console.warn(
         'sendFrame called with non-video frame, use sendAudio for audio data',
       );

@@ -30,13 +30,13 @@ export interface ApiError {
 const getApiConfig = (): ApiConfig => {
   return {
     baseURL: __DEV__
-      ? 'http://localhost:3000/api' // Development server
-      : 'https://api.moovy.app/api', // Production server
+      ? 'http://192.168.0.23:8000/v1/api' // Development server
+      : 'https://api.ovelo.app/v1/api', // Production server
     timeout: 30000, // 30 seconds
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      'User-Agent': 'Ovelo/1.0.0',
+      'User-Agent': 'Moovy/1.0.0',
     },
   };
 };
@@ -62,13 +62,15 @@ const getStreamingConfig = {
     quality: 80,
   },
   audioConfig: {
-    sampleRate: 44100,
-    channels: 2,
-    format: 'pcm' as const,
-    bitrate: 128000,
+    sampleRate: 16000, // 16 kHz — optimal for STT, balances quality and bandwidth
+    channels: 1, // Mono — reduces data and improves speech clarity
+    bitsPerSample: 16, // 16-bit PCM — standard for voice processing
+    audioSource: 6, // "voice recognition" mode for Android (works best for speech)
+    wavFile: 'ignore_this.wav', // Ignored during streaming
+    bufferSize: 800, // ≈ 100ms chunks at 16kHz mono 16-bit PCM (320 bytes)
   },
   metadata: {
-    deviceInfo: 'Ovelo App',
+    deviceInfo: 'Moovio App',
     timestamp: new Date().toISOString(),
   },
 };

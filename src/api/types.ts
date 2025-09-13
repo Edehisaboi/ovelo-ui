@@ -2,24 +2,13 @@ import { VideoResult } from '../types';
 
 // Real-time streaming types
 export interface StreamFrame {
-  type: 'video';
+  type: 'frame';
   data: string; // Base64 encoded frame data
-  metadata?: {
-    fps?: number;
-    resolution?: { width: number; height: number };
-  };
 }
 
 export interface StreamAudio {
   type: 'audio';
   data: string; // Base64 encoded audio data
-  metadata?: {
-    sampleRate: number;
-    channels: number;
-    format: 'pcm' | 'opus' | 'aac';
-    bitrate: number;
-    duration?: number; // Duration in milliseconds
-  };
 }
 
 export interface StreamSession {
@@ -45,7 +34,7 @@ export interface StreamResponse {
 // Search types
 export interface SearchRequest {
   query: string;
-  type?: 'movie' | 'show' | 'all';
+  type?: 'movie' | 'tv' | 'all';
   limit?: number;
   offset?: number;
   filters?: {
@@ -60,7 +49,7 @@ export interface SearchResponse {
   results: VideoResult[];
   total: number;
   page: number;
-  hasMore: boolean;
+  hasMore?: boolean;
   error?: string;
 }
 
@@ -101,7 +90,7 @@ export interface UserHistoryResponse {
 // Content types
 export interface ContentDetailsRequest {
   contentId: string;
-  type: 'movie' | 'show';
+  type: 'movie' | 'tv';
   includeSimilar?: boolean;
   includeTrailer?: boolean;
 }
