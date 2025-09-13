@@ -1,5 +1,5 @@
 /**
- * Moovio - Video Identification App
+ * Ovelo - Video Identification App
  * Main entry point for the application
  */
 
