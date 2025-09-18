@@ -51,8 +51,8 @@ export default function SettingsScreen() {
 
   const handleAbout = () => {
     Alert.alert(
-      'About Moovy',
-      'Moovy v1.0.0\n\nIdentify any video clip instantly using AI-powered recognition.\n\nMade with ❤️ for movie lovers everywhere.',
+      'About Ovelo',
+      'Ovelo v1.0.0\n\nIdentify any video clip instantly using AI-powered recognition.\n',
       [{ text: 'OK' }],
     );
   };
@@ -208,7 +208,7 @@ export default function SettingsScreen() {
               />
             </View>
             <View style={styles(colors).settingContent}>
-              <Text style={styles(colors).settingTitle}>About Moovy</Text>
+              <Text style={styles(colors).settingTitle}>About Ovelo</Text>
               <Text style={styles(colors).settingSubtitle}>Version 1.0.0</Text>
             </View>
             <Ionicons

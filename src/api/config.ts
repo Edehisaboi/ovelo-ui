@@ -45,7 +45,7 @@ const getWebSocketConfig = (): WebSocketConfig => {
   return {
     baseURL: __DEV__
       ? 'ws://172.16.0.91:8000/v1/ws/identify' // Development WebSocket server
-      : 'wss://api.moovy.app', // Production WebSocket server
+      : 'wss://api.ovelo.app', // Production WebSocket server
     reconnectInterval: 3000, // 3 seconds
     maxReconnectAttempts: 0,
   };
