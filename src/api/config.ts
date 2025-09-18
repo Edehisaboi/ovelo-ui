@@ -30,7 +30,7 @@ export interface ApiError {
 const getApiConfig = (): ApiConfig => {
   return {
     baseURL: __DEV__
-      ? 'http://192.168.0.23:8000/v1/api' // Development server
+      ? 'http://172.16.0.91:8000/v1/api' // Development server
       : 'https://api.ovelo.app/v1/api', // Production server
     timeout: 30000, // 30 seconds
     headers: {
@@ -44,7 +44,7 @@ const getApiConfig = (): ApiConfig => {
 const getWebSocketConfig = (): WebSocketConfig => {
   return {
     baseURL: __DEV__
-      ? 'ws://192.168.0.23:8000/v1/ws/identify' // Development WebSocket server
+      ? 'ws://172.16.0.91:8000/v1/ws/identify' // Development WebSocket server
       : 'wss://api.moovy.app', // Production WebSocket server
     reconnectInterval: 3000, // 3 seconds
     maxReconnectAttempts: 0,
