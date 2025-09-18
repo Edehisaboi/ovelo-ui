@@ -175,7 +175,7 @@ export default function HomeScreen() {
               <FlatList
                 data={searchResults}
                 renderItem={renderSearchResult}
-                keyExtractor={item => item.id as string}
+                keyExtractor={(item, index) => item.id ?? `result-${index}`}
                 showsVerticalScrollIndicator={false}
                 scrollEnabled={true}
                 nestedScrollEnabled={false}
