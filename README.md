@@ -8,7 +8,6 @@ It uses your device’s camera and microphone to capture frames and audio, strea
 ## Features
 
 - Real-time identification with react-native-vision-camera
-- Optional audio streaming for improved accuracy
 - History of identifications
 - Light/Dark theme toggle
 - Smooth animations and gestures (Reanimated, Gesture Handler)
